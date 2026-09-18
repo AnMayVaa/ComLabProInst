@@ -1,12 +1,12 @@
 ﻿<#
 .SYNOPSIS
-    สร้างและจัดการ Desktop Shortcuts & Shared Files สำหรับทุกผู้ใช้งาน (Admin และ Student)
+    ซิงค์หน้าจอ Desktop ให้ Admin และ Student เห็นเหมือนกัน 100%
 .DESCRIPTION
-    1. ตรวจสอบ Shortcuts ที่มีอยู่แล้วบน Desktop ถ้ามีแล้วจะไม่สร้างซ้ำ
-    2. รวม Shortcuts จาก Admin Desktop ไปยัง Public Desktop เพื่อให้ Student มองเห็นด้วย
-    3. ซิงค์ไฟล์บทเรียน/เอกสารที่ต้องการแชร์ไปยัง Student และ Public Desktop
-    4. สร้างโฟลเดอร์ส่วนกลาง C:\LabFiles สำหรับแชร์ไฟล์แลป และสร้าง Shortcut หน้า Desktop
-    5. กำหนดสิทธิ์ NTFS (icacls) ให้กลุ่ม Users (Student) เข้าถึงและรันโปรแกรมได้ 100%
+    1. ตรวจสอบ Shortcuts ที่มีอยู่แล้ว ถ้ามีอยู่แล้วจะไม่สร้างซ้ำ
+    2. ย้าย Shortcuts และไฟล์ทั้งหมดจากหน้าจอ Admin มาไว้ที่ Public Desktop เพื่อให้ Student มองเห็นเหมือนกันทุกอย่าง
+    3. สร้าง Shortcuts โปรแกรมที่ยังขาดอยู่ลงบน Public Desktop
+    4. คัดลอก Shortcuts ทั้งหมดไปไว้ที่ Default User และ Student Desktop เพื่อรับประกันว่าหน้าจอเหมือนกันแน่นอน
+    5. กำหนดสิทธิ์ NTFS (icacls) ให้ Student (Users) สามารถเปิดและใช้งานโปรแกรมได้ทุกตัว
 #>
 
 #Requires -RunAsAdministrator
@@ -36,15 +36,15 @@ function Write-Log {
     Add-Content -Path $LogFile -Value $logEntry -Encoding UTF8
 }
 
-Write-Log "========== เริ่มจัดการ Desktop & Shared Files ให้ Admin และ Student =========="
+Write-Log "========== เริ่มซิงค์หน้าจอ Desktop ให้ Admin และ Student เหมือนกัน 100% =========="
 Write-Log "เป้าหมาย Public Desktop: $PublicDesktop"
 
 # ─────────────────────────────────────────────
-# 1. รวบรวมและย้าย Shortcuts จาก Admin Desktop -> Public Desktop
-# (เพื่อไม่ให้มี Shortcut ซ้ำซ้อน และทำให้ Student มองเห็นโปรแกรมที่ Admin มี)
+# 1. ย้าย Shortcuts และไฟล์จาก Admin Desktop สู่ Public Desktop
+# เพื่อให้สิ่งที่ Admin เห็นบนหน้าจอ ปรากฏให้ Student เห็นด้วยทั้งหมด
 # ─────────────────────────────────────────────
 Write-Host ""
-Write-Host "--- [1/5] รวบรวม Shortcuts จาก Admin Desktop สู่ Public Desktop ---" -ForegroundColor DarkCyan
+Write-Host "--- [1/4] ซิงค์ไฟล์และ Shortcuts จากหน้าจอ Admin สู่ Public Desktop ---" -ForegroundColor DarkCyan
 
 $adminDesktopPaths = @(
     "$env:USERPROFILE\Desktop",
@@ -52,22 +52,46 @@ $adminDesktopPaths = @(
     "C:\Users\Administrator\Desktop"
 ) | Select-Object -Unique
 
+# รายการไฟล์ที่ไม่ต้องซิงค์ (ไฟล์ระบบและสคริปต์ติดตั้ง)
+$excludePatterns = @("desktop.ini", "*.bat", "*.ps1", "*.cmd", "*.log", ".git*")
+
 foreach ($adPath in $adminDesktopPaths) {
     if ((Test-Path $adPath) -and ($adPath -ne $PublicDesktop)) {
-        Write-Log "กำลังตรวจสอบ: $adPath" "INFO"
-        $adminLinks = Get-ChildItem -Path $adPath -Filter "*.lnk" -ErrorAction SilentlyContinue
+        Write-Log "กำลังตรวจสอบหน้าจอ Admin: $adPath" "INFO"
         
+        # 1.1 จัดการไฟล์ Shortcut (.lnk)
+        $adminLinks = Get-ChildItem -Path $adPath -Filter "*.lnk" -ErrorAction SilentlyContinue
         foreach ($lnk in $adminLinks) {
             try {
                 $destPath = Join-Path $PublicDesktop $lnk.Name
                 if (Test-Path $destPath) {
-                    # ถ้ามีบน Public Desktop อยู่แล้ว ให้ลบตัวซ้ำใน Admin Desktop เพื่อไม่ให้เห็นไอคอนเบิ้ล
+                    # มีบน Public Desktop แล้ว ลบตัวซ้ำใน Admin เพื่อไม่ให้มีไอคอนเบิ้ล
                     Remove-Item -Path $lnk.FullName -Force -ErrorAction SilentlyContinue
                     Write-Log "[DEDUP] ลบ Shortcut ซ้ำบน Admin Desktop: $($lnk.Name)" "SKIP"
                 } else {
-                    # ย้ายไปที่ Public Desktop เพื่อให้ทั้ง Admin และ Student มองเห็นไอคอนเดียวกัน
+                    # ย้ายไป Public Desktop เพื่อให้ Student เห็นด้วย
                     Move-Item -Path $lnk.FullName -Destination $destPath -Force -ErrorAction SilentlyContinue
-                    Write-Log "[SHARED] ย้าย Shortcut '$($lnk.Name)' สู่ Public Desktop สำเร็จ" "SUCCESS"
+                    Write-Log "[SHARED] ย้าย Shortcut '$($lnk.Name)' ไปยังหน้าจอหลัก (Public Desktop)" "SUCCESS"
+                }
+            } catch {}
+        }
+
+        # 1.2 จัดการไฟล์/โฟลเดอร์อื่นๆ ที่ Admin วางไว้บนหน้าจอ (เช่น ไฟล์งาน, เอกสาร)
+        $otherItems = Get-ChildItem -Path $adPath -ErrorAction SilentlyContinue | Where-Object {
+            $item = $_
+            $isExcluded = $false
+            foreach ($pat in $excludePatterns) {
+                if ($item.Name -like $pat) { $isExcluded = $true; break }
+            }
+            (-not $isExcluded) -and ($item.Extension -ne ".lnk")
+        }
+
+        foreach ($item in $otherItems) {
+            try {
+                $destItem = Join-Path $PublicDesktop $item.Name
+                if (-not (Test-Path $destItem)) {
+                    Copy-Item -Path $item.FullName -Destination $destItem -Recurse -Force -ErrorAction SilentlyContinue
+                    Write-Log "[SYNC] คัดลอก '$($item.Name)' ไปยัง Public Desktop ให้ Student มองเห็นด้วย" "SUCCESS"
                 }
             } catch {}
         }
@@ -75,8 +99,8 @@ foreach ($adPath in $adminDesktopPaths) {
 }
 
 # ─────────────────────────────────────────────
-# 2. ฟังก์ชันตรวจสอบและสร้าง Public Shortcut
-# (ถ้ามีอยู่แล้ว หรือมี Shortcut ที่ชี้ไปยัง Target เดียวกัน จะข้ามทันที)
+# 2. ฟังก์ชันตรวจสอบและสร้าง Shortcut
+# (ถ้ามีอยู่แล้วหน้า Desktop หรือมี Shortcut ชี้ไปยังโปรแกรมเดียวกัน จะข้ามทันที)
 # ─────────────────────────────────────────────
 function Create-PublicShortcut {
     param(
@@ -95,30 +119,30 @@ function Create-PublicShortcut {
     }
 
     if (-not $targetExe) {
-        Write-Log "[NOT FOUND] ไม่พบ $Name ในระบบ -- ข้ามการสร้าง Shortcut" "WARNING"
+        Write-Log "[NOT FOUND] ไม่พบ $Name ในระบบ -- ข้าม" "WARNING"
         return $false
     }
 
-    # 1. เช็คว่ามีไฟล์ Shortcut ชื่อนี้อยู่บน Public Desktop แล้วหรือไม่
+    # 1. ถ้ามี Shortcut ชื่อนี้อยู่แล้วบน Desktop ให้ข้ามทันที
     $shortcutPath = Join-Path $PublicDesktop "$Name.lnk"
     if (Test-Path $shortcutPath) {
         Write-Log "[SKIP] มี Shortcut '$Name.lnk' อยู่บน Desktop แล้ว -- ข้าม" "SKIP"
         return $true
     }
 
-    # 2. เช็คว่ามี Shortcut ใดๆ ใน Public Desktop ที่ชี้ไปยัง $targetExe อยู่แล้วหรือไม่ (เช่น ชื่อต่างกันเล็กน้อย)
+    # 2. ถ้ามี Shortcut อื่นที่ชี้ไปยังไฟล์ .exe เดียวกันอยู่แล้ว ให้ข้ามทันที
     $allExistingLnk = Get-ChildItem -Path $PublicDesktop -Filter "*.lnk" -ErrorAction SilentlyContinue
     foreach ($lnk in $allExistingLnk) {
         try {
             $sc = $WshShell.CreateShortcut($lnk.FullName)
             if ($sc.TargetPath -ieq $targetExe) {
-                Write-Log "[SKIP] มี Shortcut ชี้ไปยังเป้าหมายแล้ว ($($lnk.Name)) -- ข้าม" "SKIP"
+                Write-Log "[SKIP] มี Shortcut ที่ชี้ไปยัง $Name อยู่แล้ว ($($lnk.Name)) -- ข้าม" "SKIP"
                 return $true
             }
         } catch {}
     }
 
-    # 3. ถ้ายังไม่มี ให้สร้างใหม่
+    # 3. ถ้ายังไม่มีบนหน้าจอ ให้สร้างใหม่
     try {
         $shortcut = $WshShell.CreateShortcut($shortcutPath)
         $shortcut.TargetPath = $targetExe
@@ -128,24 +152,24 @@ function Create-PublicShortcut {
         }
         $shortcut.Save()
 
-        # ให้สิทธิ์ Users อ่านและรันโปรแกรมได้
+        # ให้สิทธิ์ Users อ่านและเปิดใช้งานได้
         $appDir = Split-Path $targetExe
         icacls "$appDir" /grant "Users:(OI)(CI)RX" /Q 2>&1 | Out-Null
 
-        Write-Log "[SUCCESS] สร้าง Shortcut ใหม่: $Name -> $shortcutPath" "SUCCESS"
+        Write-Log "[SUCCESS] สร้าง Shortcut: $Name -> $shortcutPath" "SUCCESS"
         return $true
     }
     catch {
-        Write-Log "[FAIL] สร้าง Shortcut ล้มเหลวสำหรับ ${Name} - $($_.Exception.Message)" "ERROR"
+        Write-Log "[FAIL] สร้าง Shortcut ล้มเหลว: ${Name} - $($_.Exception.Message)" "ERROR"
         return $false
     }
 }
 
 # ─────────────────────────────────────────────
-# 3. รายการโปรแกรมทั้งหมดที่ต้องการให้มีบน Desktop
+# 3. รายการโปรแกรมมาตรฐานของห้องแลป
 # ─────────────────────────────────────────────
 Write-Host ""
-Write-Host "--- [2/5] ตรวจสอบและสร้าง Shortcuts โปรแกรมการเรียนการสอน ---" -ForegroundColor DarkCyan
+Write-Host "--- [2/4] ตรวจสอบโปรแกรมทั้งหมดและสร้าง Shortcuts ที่ยังขาด ---" -ForegroundColor DarkCyan
 
 $appDefinitions = @(
     @{
@@ -246,10 +270,10 @@ $appDefinitions = @(
     @{
         Name = "SQL Server Management Studio"
         Paths = @(
-            "${env:ProgramFiles(x86)}\Microsoft SQL Server Management Studio*\Common7\IDE\Ssms.exe",
-            "$env:ProgramFiles\Microsoft SQL Server Management Studio*\Common7\IDE\Ssms.exe",
-            "C:\Program Files\Microsoft SQL Server Management Studio *\Common7\IDE\Ssms.exe",
-            "C:\Program Files (x86)\Microsoft SQL Server Management Studio *\Common7\IDE\Ssms.exe"
+            "${env:ProgramFiles(x86)}\Microsoft SQL Server Management Studio*\Common7\\IDE\Ssms.exe",
+            "$env:ProgramFiles\Microsoft SQL Server Management Studio*\Common7\\IDE\Ssms.exe",
+            "C:\Program Files\Microsoft SQL Server Management Studio *\Common7\\IDE\Ssms.exe",
+            "C:\Program Files (x86)\Microsoft SQL Server Management Studio *\Common7\\IDE\Ssms.exe"
         )
     },
     @{
@@ -328,82 +352,36 @@ foreach ($app in $appDefinitions) {
 }
 
 # ─────────────────────────────────────────────
-# 4. สร้างพื้นที่แชร์ไฟล์บทเรียน C:\LabFiles สำหรับแลป
-# (แก้ไขปัญหา Student ไม่เห็นไฟล์เอกสารของ Admin)
+# 4. คัดลอกสู่ Default User & Student Desktop และเปิดสิทธิ์ NTFS
 # ─────────────────────────────────────────────
 Write-Host ""
-Write-Host "--- [3/5] จัดเตรียมพื้นที่แชร์ไฟล์บทเรียน (C:\LabFiles) ---" -ForegroundColor DarkCyan
+Write-Host "--- [3/4] รับประกันความเหมือนกันระหว่าง Admin และ Student ---" -ForegroundColor DarkCyan
 
-$labShareDir = "C:\LabFiles"
-if (-not (Test-Path $labShareDir)) {
-    New-Item -ItemType Directory -Path $labShareDir -Force | Out-Null
-    Write-Log "สร้างโฟลเดอร์แชร์งานแลป: $labShareDir" "SUCCESS"
-}
-
-# กำหนดสิทธิ์ให้นักศึกษา (Users) มีสิทธิ์เปิด อ่าน แก้ไข และบันทึกไฟล์ใน C:\LabFiles ได้
-icacls "$labShareDir" /grant "Users:(OI)(CI)M" /Q 2>&1 | Out-Null
-Write-Log "กำหนดสิทธิ์ให้กลุ่ม Users (Student) เข้าถึงและบันทึกไฟล์ใน $labShareDir ได้สมบูรณ์" "SUCCESS"
-
-# สร้าง Shortcut ไปยัง C:\LabFiles บน Desktop
-$labShareLnk = Join-Path $PublicDesktop "LabFiles (พื้นที่แชร์ไฟล์บทเรียน).lnk"
-if (-not (Test-Path $labShareLnk)) {
-    $folderShortcut = $WshShell.CreateShortcut($labShareLnk)
-    $folderShortcut.TargetPath = $labShareDir
-    $folderShortcut.Description = "โฟลเดอร์สำหรับแชร์เอกสาร ใบงาน และไฟล์แลประหว่างอาจารย์กับนักศึกษา"
-    $folderShortcut.Save()
-    Write-Log "[SUCCESS] สร้าง Shortcut 'LabFiles' บนหน้าจอ Desktop ให้ทุก User" "SUCCESS"
-}
-
-# ─────────────────────────────────────────────
-# 5. ซิงค์ไฟล์บทเรียนจาก Admin Desktop สู่ Public Desktop (ถ้ามี)
-# ─────────────────────────────────────────────
-Write-Host ""
-Write-Host "--- [4/5] ซิงค์ไฟล์งาน/เอกสารจาก Admin Desktop สู่ Public Desktop ---" -ForegroundColor DarkCyan
-
-$excludePatterns = @("*.lnk", "*.bat", "*.ps1", "*.cmd", "desktop.ini", "*.log", ".git*")
-foreach ($adPath in $adminDesktopPaths) {
-    if ((Test-Path $adPath) -and ($adPath -ne $PublicDesktop)) {
-        $filesToShare = Get-ChildItem -Path $adPath -File -ErrorAction SilentlyContinue | Where-Object {
-            $f = $_
-            $isExcluded = $false
-            foreach ($pat in $excludePatterns) {
-                if ($f.Name -like $pat) { $isExcluded = $true; break }
-            }
-            -not $isExcluded
-        }
-        foreach ($file in $filesToShare) {
-            $destFile = Join-Path $PublicDesktop $file.Name
-            if (-not (Test-Path $destFile)) {
-                Copy-Item -Path $file.FullName -Destination $destFile -Force -ErrorAction SilentlyContinue
-                Write-Log "[SYNC] คัดลอกไฟล์เอกสาร '$($file.Name)' ไปยัง Public Desktop เรียบร้อย" "SUCCESS"
-            }
-        }
-    }
-}
-
-# ─────────────────────────────────────────────
-# 6. คัดลอก Shortcuts สู่ Default User และปรับสิทธิ์ NTFS
-# ─────────────────────────────────────────────
-Write-Host ""
-Write-Host "--- [5/5] กำหนดสิทธิ์และอัปเดต Default Profile ---" -ForegroundColor DarkCyan
-
-# 1. ให้สิทธิ์ Users อ่าน Public Desktop
+# ให้สิทธิ์กลุ่ม Users (Student) เข้าถึง Public Desktop
 icacls "$PublicDesktop" /grant "Users:(OI)(CI)RX" /Q 2>&1 | Out-Null
 
-# 2. คัดลอก Shortcuts ไปยัง Default Profile Desktop เผื่อการสร้างโปรไฟล์ใหม่
+# คัดลอก Shortcuts และไฟล์ทั้งหมดไปยัง Default User Desktop Template
+# เพื่อให้ทุกบัญชีใหม่ที่สร้างขึ้น ได้รับหน้าจอ Desktop ที่เหมือนกันทันที
 $defaultDesktop = "C:\Users\Default\Desktop"
 if (Test-Path $defaultDesktop) {
-    Copy-Item -Path "$PublicDesktop\*.lnk" -Destination $defaultDesktop -Force -ErrorAction SilentlyContinue
-    Write-Log "อัปเดต Shortcuts ไปยัง Default User Desktop Template เรียบร้อย" "INFO"
+    Copy-Item -Path "$PublicDesktop\*" -Destination $defaultDesktop -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Log "ซิงค์หน้าจอไปยัง Default User Template สำเร็จ" "INFO"
 }
 
-# 3. ถ้าโฟลเดอร์ Student Desktop มีอยู่แล้ว ให้สิทธิ์ Users เต็มที่
+# ถ้ามีโฟลเดอร์ Student Desktop อยู่แล้ว ให้คัดลอกไฟล์ทั้งหมดไปใส่ และเปิดสิทธิ์ให้ Student
 $studentDesktop = "C:\Users\Student\Desktop"
 if (Test-Path $studentDesktop) {
+    Copy-Item -Path "$PublicDesktop\*" -Destination $studentDesktop -Recurse -Force -ErrorAction SilentlyContinue
     icacls "$studentDesktop" /grant "Users:(OI)(CI)F" /Q 2>&1 | Out-Null
+    Write-Log "ซิงค์หน้าจอไปยัง Student Desktop สำเร็จ" "INFO"
 }
 
-# 4. ให้สิทธิ์ Users กับโฟลเดอร์โปรแกรมที่ติดตั้งในระดับระบบและ AppData
+# ─────────────────────────────────────────────
+# 5. เปิดสิทธิ์การใช้งานโปรแกรมให้ Student (Users)
+# ─────────────────────────────────────────────
+Write-Host ""
+Write-Host "--- [4/4] เปิดสิทธิ์การรันโปรแกรมให้ Student ---" -ForegroundColor DarkCyan
+
 $appFoldersToGrant = @(
     "C:\Program Files\Python312",
     "C:\Program Files\LINE",
@@ -421,6 +399,7 @@ foreach ($f in $appFoldersToGrant) {
     }
 }
 
-Write-Log "========== เสร็จสิ้นการจัดการ Desktop & Shared Files =========="
+Write-Log "========== เสร็จสิ้น: หน้าจอ Desktop ของ Admin และ Student เหมือนกัน 100% เรียบร้อย =========="
 Write-Host ""
-Write-Host "✅ ทุกโปรแกรมและไฟล์ที่แชร์จะปรากฏบน Desktop ของทั้ง Admin และ Student ทันที!" -ForegroundColor Green
+Write-Host "✅ หน้าจอ Desktop ของ Admin และ Student มีโปรแกรมและไฟล์เหมือนกันทุกประการ!" -ForegroundColor Green
+Write-Host "🔒 ความแตกต่าง: Admin มีสิทธิ์ตั้งค่าระบบและลงโปรแกรม ส่วน Student เป็น Standard User" -ForegroundColor Cyan
