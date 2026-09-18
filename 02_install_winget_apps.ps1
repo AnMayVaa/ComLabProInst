@@ -123,7 +123,35 @@ for ($i = 0; $i -lt $totalApps; $i++) {
     # 1. ตรวจสอบว่าลงแล้วหรือยัง
     $escapedId = [regex]::Escape($app.id)
     $checkInstalled = & $wingetExe list --id $app.id --accept-source-agreements 2>&1 | Out-String
-    if ($checkInstalled -match $escapedId -and $checkInstalled -notmatch "No installed package") {
+    $shouldSkip = ($checkInstalled -match $escapedId -and $checkInstalled -notmatch "No installed package")
+
+    # ข้อยกเว้นพิเศษ: ตรวจสอบว่าติดตั้งแบบ Machine-wide หรือยัง
+    if ($app.id -eq "Python.Python.3.12") {
+        if (-not (Test-Path "C:\Program Files\Python312\python.exe")) {
+            $shouldSkip = $false
+            Write-Log "$progress ตรวจพบว่า Python ยังไม่ได้ติดตั้งใน C:\Program Files\Python312 (Machine-wide) -- บังคับติดตั้งใหม่..." "WARNING"
+        }
+    }
+    if ($app.id -eq "Microsoft.VisualStudioCode") {
+        if (-not (Test-Path "$env:ProgramFiles\Microsoft VS Code\Code.exe") -and -not (Test-Path "${env:ProgramFiles(x86)}\Microsoft VS Code\Code.exe")) {
+            $shouldSkip = $false
+            Write-Log "$progress ตรวจพบว่า VS Code ยังไม่ได้ติดตั้งแบบ Machine-wide -- บังคับติดตั้งแบบ machine..." "WARNING"
+        }
+    }
+    if ($app.id -eq "Embarcadero.Dev-C++") {
+        $devFound = (Test-Path "$env:ProgramFiles\Embarcadero\Dev-Cpp\devcpp.exe") -or 
+                    (Test-Path "${env:ProgramFiles(x86)}\Embarcadero\Dev-Cpp\devcpp.exe") -or 
+                    (Test-Path "C:\Program Files (x86)\Dev-Cpp\devcpp.exe")
+        if (-not $devFound) { $shouldSkip = $false }
+    }
+    if ($app.id -eq "ProcessingFoundation.Processing") {
+        $procFound = (Test-Path "C:\Program Files\Processing 4\processing.exe") -or 
+                     (Test-Path "C:\Program Files\Processing\processing.exe") -or 
+                     (Test-Path "C:\Processing\processing.exe")
+        if (-not $procFound) { $shouldSkip = $false }
+    }
+
+    if ($shouldSkip) {
         Write-Log "$progress [SKIP] $($app.name) -- ติดตั้งอยู่แล้ว ข้าม" "SKIP"
         $skipped++
         continue
@@ -205,5 +233,58 @@ if ($failed -gt 0) {
     Write-Host "มี $failed โปรแกรมลงไม่สำเร็จ กรุณาตรวจสอบ log:" -ForegroundColor Yellow
     Write-Host "   $LogFile" -ForegroundColor Yellow
 }
+
+# ─────────────────────────────────────────────
+# ตรวจสอบและอัปเดต System PATH (GCC, R, Python, Eclipse)
+# ─────────────────────────────────────────────
+Write-Host ""
+Write-Host "----------------------------------------" -ForegroundColor DarkCyan
+Write-Log "กำลังตรวจสอบและอัปเดต System PATH สำหรับ GCC, R, Python, Eclipse..." "INFO"
+
+function Add-ToMachinePath {
+    param([string]$FolderPath)
+    if (Test-Path $FolderPath) {
+        $currentPath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+        $paths = $currentPath -split ";" | Where-Object { $_ -ne "" }
+        if ($paths -notcontains $FolderPath) {
+            $newPath = "$FolderPath;" + $currentPath
+            [Environment]::SetEnvironmentVariable("Path", $newPath, "Machine")
+            $env:Path = "$FolderPath;" + $env:Path
+            Write-Log "[PATH] เพิ่ม $FolderPath เข้าสู่ System PATH สำเร็จ" "SUCCESS"
+        }
+    }
+}
+
+# 1. Python 3.12 (Machine-wide)
+Add-ToMachinePath "C:\Program Files\Python312"
+Add-ToMachinePath "C:\Program Files\Python312\Scripts"
+
+# 2. MinGW GCC (จาก Dev-C++ หรือ Code::Blocks)
+$gccCandidates = @(
+    "C:\Program Files (x86)\Embarcadero\Dev-Cpp\TDM-GCC-64\bin",
+    "C:\Program Files\Embarcadero\Dev-Cpp\TDM-GCC-64\bin",
+    "C:\Program Files\CodeBlocks\MinGW\bin",
+    "C:\Program Files (x86)\CodeBlocks\MinGW\bin"
+)
+foreach ($gccDir in $gccCandidates) {
+    if (Test-Path "$gccDir\gcc.exe") {
+        Add-ToMachinePath $gccDir
+        break
+    }
+}
+
+# 3. R Language bin
+$rDirs = Get-ChildItem -Path "C:\Program Files\R" -Filter "R-*" -Directory -ErrorAction SilentlyContinue
+foreach ($rDir in $rDirs) {
+    if (Test-Path "$($rDir.FullName)\bin\x64") {
+        Add-ToMachinePath "$($rDir.FullName)\bin\x64"
+    }
+    if (Test-Path "$($rDir.FullName)\bin") {
+        Add-ToMachinePath "$($rDir.FullName)\bin"
+    }
+}
+
+# 4. Eclipse
+Add-ToMachinePath "C:\Eclipse"
 
 Write-Log "========== เสร็จสิ้น 02_install_winget_apps =========="

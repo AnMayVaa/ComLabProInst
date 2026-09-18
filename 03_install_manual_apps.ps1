@@ -241,6 +241,18 @@ else {
                 if (Test-Path $d) {
                     Set-PublicShortcut -ShortcutName "Dev-C++" -TargetPath $d
                     Write-Log "Dev-C++ ติดตั้งสำเร็จ!" "SUCCESS"
+                    
+                    # เพิ่ม MinGW GCC เข้า System PATH
+                    $tdmDir = Split-Path (Split-Path $d)
+                    $gccPath = Join-Path $tdmDir "TDM-GCC-64\bin"
+                    if (Test-Path "$gccPath\gcc.exe") {
+                        $currentMPath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+                        if ($currentMPath -notlike "*$gccPath*") {
+                            [Environment]::SetEnvironmentVariable("Path", "$gccPath;$currentMPath", "Machine")
+                            $env:Path = "$gccPath;" + $env:Path
+                            Write-Log "[PATH] เพิ่ม TDM-GCC เข้าสู่ System PATH: $gccPath" "SUCCESS"
+                        }
+                    }
                     break
                 }
             }

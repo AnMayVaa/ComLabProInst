@@ -87,6 +87,28 @@ function Create-PublicShortcut {
 # ─────────────────────────────────────────────
 $appDefinitions = @(
     @{
+        Name = "Python 3.12"
+        Paths = @(
+            "C:\Program Files\Python312\python.exe",
+            "$env:ProgramFiles\Python312\python.exe",
+            "C:\Python312\python.exe"
+        )
+    },
+    @{
+        Name = "IDLE (Python 3.12)"
+        Paths = @(
+            "C:\Program Files\Python312\Lib\idlelib\idle.bat",
+            "$env:ProgramFiles\Python312\Lib\idlelib\idle.bat"
+        )
+    },
+    @{
+        Name = "Jupyter Notebook"
+        Paths = @(
+            "C:\Program Files\Python312\Scripts\jupyter-notebook.exe",
+            "$env:ProgramFiles\Python312\Scripts\jupyter-notebook.exe"
+        )
+    },
+    @{
         Name = "Google Chrome"
         Paths = @(
             "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
@@ -266,7 +288,7 @@ foreach ($f in $appDataFolders) {
 }
 
 # เปิดสิทธิ์โฟลเดอร์ C:\Processing และ C:\Eclipse
-$customFolders = @("C:\Processing", "C:\Eclipse", "C:\Program Files\LINE")
+$customFolders = @("C:\Program Files\Python312", "C:\Processing", "C:\Eclipse", "C:\Program Files\LINE")
 foreach ($cf in $customFolders) {
     if (Test-Path $cf) {
         Write-Log "เปิดสิทธิ์เข้าถึงให้กลุ่ม Users สำหรับ: $cf" "INFO"

@@ -46,23 +46,38 @@ $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";
 
 $pythonCmd = $null
 
-$pythonCmd = Get-Command python -ErrorAction SilentlyContinue
-if (-not $pythonCmd) {
-    $pythonCmd = Get-Command python3 -ErrorAction SilentlyContinue
+# ค้นหา Python Machine-wide (C:\Program Files\Python312) เป็นลำดับแรกเสมอ เพื่อเลี่ยงข้อจำกัด Smart App Control
+$systemPyList = @(
+    "C:\Program Files\Python312\python.exe",
+    "$env:ProgramFiles\Python312\python.exe",
+    "C:\Program Files\Python313\python.exe",
+    "$env:ProgramFiles\Python313\python.exe",
+    "C:\Python312\python.exe"
+)
+foreach ($sp in $systemPyList) {
+    if (Test-Path $sp) {
+        $pythonCmd = $sp
+        Write-Log "พบ Python (System-wide): $sp" "SUCCESS"
+        break
+    }
 }
+
 if (-not $pythonCmd) {
-    $possiblePaths = @(
+    $cmd = Get-Command python -ErrorAction SilentlyContinue
+    if ($cmd) {
+        $pythonCmd = $cmd.Source
+    }
+}
+
+if (-not $pythonCmd) {
+    $userPaths = @(
         "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe",
-        "$env:LOCALAPPDATA\Programs\Python\Python313\python.exe",
-        "C:\Python312\python.exe",
-        "C:\Python313\python.exe",
-        "$env:ProgramFiles\Python312\python.exe",
-        "$env:ProgramFiles\Python313\python.exe"
+        "$env:LOCALAPPDATA\Programs\Python\Python313\python.exe"
     )
-    foreach ($path in $possiblePaths) {
-        if (Test-Path $path) {
-            $pythonCmd = $path
-            Write-Log "พบ Python ที่: $path" "INFO"
+    foreach ($up in $userPaths) {
+        if (Test-Path $up) {
+            $pythonCmd = $up
+            Write-Log "พบ Python ใน AppData: $up (อาจถูกจำกัดสิทธิ์โดย Smart App Control)" "WARNING"
             break
         }
     }
@@ -108,6 +123,11 @@ Write-Host ""
         Write-Log "  $_"
     }
 }
+
+# ให้สิทธิ์กลุ่ม Users ใช้งาน C:\Program Files\Python312 ได้อย่างสมบูรณ์
+$pyRoot = Split-Path $pythonExe
+Write-Log "กำหนดสิทธิ์ให้กลุ่ม Users เข้าถึง: $pyRoot..." "INFO"
+icacls "$pyRoot" /grant "Users:(OI)(CI)RX" /T /Q 2>&1 | Out-Null
 
 # ─────────────────────────────────────────────
 # ตรวจสอบว่าลงครบ

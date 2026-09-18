@@ -60,7 +60,7 @@ else {
 # ─────────────────────────────────────────────
 $checks = @(
     @{ Name = "Google Chrome";       Cmd = "chrome";       Paths = @("$env:ProgramFiles\Google\Chrome\Application\chrome.exe", "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe") }
-    @{ Name = "Python";              Cmd = "python";       VersionCmd = "python --version" }
+    @{ Name = "Python";              Cmd = "python";       Paths = @("C:\Program Files\Python312\python.exe", "$env:ProgramFiles\Python312\python.exe", "C:\Python312\python.exe", "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe"); VersionCmd = "python --version" }
     @{ Name = "Oracle JDK 21";       Cmd = "java";         VersionCmd = "java --version" }
     @{ Name = "Thonny";              Cmd = "thonny";       Paths = @("$env:ProgramFiles\Thonny\thonny.exe", "${env:ProgramFiles(x86)}\Thonny\thonny.exe", "$env:LOCALAPPDATA\Programs\Thonny\thonny.exe") }
     @{ Name = "VS Code";             Cmd = "code";         Paths = @("$env:ProgramFiles\Microsoft VS Code\Code.exe", "${env:ProgramFiles(x86)}\Microsoft VS Code\Code.exe", "$env:LOCALAPPDATA\Programs\Microsoft VS Code\Code.exe") }
@@ -68,8 +68,8 @@ $checks = @(
     @{ Name = "IntelliJ IDEA";       Cmd = "idea64";       Paths = @("$env:ProgramFiles\JetBrains\IntelliJ IDEA Community Edition*\bin\idea64.exe") }
     @{ Name = "Dev-C++";             Cmd = "devcpp";       Paths = @("$env:ProgramFiles\Embarcadero\Dev-Cpp\devcpp.exe", "${env:ProgramFiles(x86)}\Embarcadero\Dev-Cpp\devcpp.exe", "C:\Program Files (x86)\Dev-Cpp\devcpp.exe") }
     @{ Name = "Code::Blocks";        Cmd = "codeblocks";   Paths = @("$env:ProgramFiles\CodeBlocks\codeblocks.exe", "${env:ProgramFiles(x86)}\CodeBlocks\codeblocks.exe") }
-    @{ Name = "GCC (MinGW)";         Cmd = "gcc";          VersionCmd = "gcc --version" }
-    @{ Name = "R Language";          Cmd = "Rscript";      VersionCmd = "Rscript --version" }
+    @{ Name = "GCC (MinGW)";         Cmd = "gcc";          Paths = @("${env:ProgramFiles(x86)}\Embarcadero\Dev-Cpp\TDM-GCC-64\bin\gcc.exe", "$env:ProgramFiles\Embarcadero\Dev-Cpp\TDM-GCC-64\bin\gcc.exe", "$env:ProgramFiles\CodeBlocks\MinGW\bin\gcc.exe", "${env:ProgramFiles(x86)}\CodeBlocks\MinGW\bin\gcc.exe"); VersionCmd = "gcc --version" }
+    @{ Name = "R Language";          Cmd = "Rscript";      Paths = @("$env:ProgramFiles\R\R-*\bin\Rscript.exe", "$env:ProgramFiles\R\R-*\bin\x64\Rscript.exe"); VersionCmd = "Rscript --version" }
     @{ Name = "RStudio";             Cmd = "rstudio";      Paths = @("$env:ProgramFiles\RStudio\rstudio.exe", "$env:ProgramFiles\Posit\RStudio\rstudio.exe") }
     @{ Name = "Git";                 Cmd = "git";          VersionCmd = "git --version" }
     @{ Name = "GitHub Desktop";      Cmd = "github";       Paths = @("$env:ProgramFiles\GitHub Desktop\GitHubDesktop.exe", "$env:LOCALAPPDATA\GitHubDesktop\GitHubDesktop.exe") }
@@ -78,7 +78,7 @@ $checks = @(
     @{ Name = "Raspberry Pi Imager"; Cmd = "rpi-imager";   Paths = @("$env:ProgramFiles\Raspberry Pi Imager\rpi-imager.exe", "${env:ProgramFiles(x86)}\Raspberry Pi Imager\rpi-imager.exe") }
     @{ Name = "MySQL";               Cmd = "mysql";        VersionCmd = "mysql --version" }
     @{ Name = "MariaDB";             Cmd = "mariadb";      Paths = @("$env:ProgramFiles\MariaDB*\bin\mariadb.exe") }
-    @{ Name = "SSMS";                Cmd = "ssms";         Paths = @("${env:ProgramFiles(x86)}\Microsoft SQL Server Management Studio*\Common7\IDE\Ssms.exe", "$env:ProgramFiles\Microsoft SQL Server Management Studio*\Common7\IDE\Ssms.exe") }
+    @{ Name = "SSMS";                Cmd = "ssms";         Paths = @("${env:ProgramFiles(x86)}\Microsoft SQL Server Management Studio*\Common7\IDE\Ssms.exe", "$env:ProgramFiles\Microsoft SQL Server Management Studio*\Common7\IDE\Ssms.exe", "C:\Program Files\Microsoft SQL Server Management Studio *\Common7\IDE\Ssms.exe", "C:\Program Files (x86)\Microsoft SQL Server Management Studio *\Common7\IDE\Ssms.exe") }
     @{ Name = "LINE";                Cmd = "LINE";         Paths = @("C:\Program Files\LINE\bin\LineLauncher.exe", "${env:ProgramFiles(x86)}\LINE\bin\LineLauncher.exe", "$env:LOCALAPPDATA\LINE\bin\LineLauncher.exe") }
     @{ Name = "Processing";          Cmd = "processing";   Paths = @("C:\Program Files\Processing 4\processing.exe", "C:\Program Files\Processing\processing.exe", "C:\Processing\processing.exe") }
     @{ Name = "Pulsar (Atom)";       Cmd = "pulsar";       Paths = @("$env:LOCALAPPDATA\Programs\Pulsar\Pulsar.exe", "$env:ProgramFiles\Pulsar\Pulsar.exe") }
@@ -158,8 +158,14 @@ $pyLibs = @("numpy", "pandas", "matplotlib", "scipy", "sklearn", "jupyter",
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
             [System.Environment]::GetEnvironmentVariable("Path", "User")
 
+$verifyPy = "python"
+$sysPyList = @("C:\Program Files\Python312\python.exe", "$env:ProgramFiles\Python312\python.exe", "C:\Python312\python.exe")
+foreach ($sp in $sysPyList) {
+    if (Test-Path $sp) { $verifyPy = $sp; break }
+}
+
 foreach ($lib in $pyLibs) {
-    $importResult = python -c "import $lib; print(getattr($lib, '__version__', 'ok'))" 2>&1
+    $importResult = & $verifyPy -c "import $lib; print(getattr($lib, '__version__', 'ok'))" 2>&1
     $success = ($LASTEXITCODE -eq 0)
     $status = if ($success) { "[PASS]" } else { "[FAIL]" }
     $level = if ($success) { "SUCCESS" } else { "ERROR" }

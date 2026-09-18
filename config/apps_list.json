@@ -1,6 +1,11 @@
 {
   "winget_apps": [
     {
+      "name": "Visual C++ 2015-2022 Redistributable (x64)",
+      "id": "Microsoft.VCRedist.2015+.x64",
+      "category": "system"
+    },
+    {
       "name": "Google Chrome",
       "id": "Google.Chrome",
       "category": "browser"
@@ -8,6 +13,7 @@
     {
       "name": "Python 3.12",
       "id": "Python.Python.3.12",
+      "override": "/quiet InstallAllUsers=1 PrependPath=1 TargetDir=\"C:\\Program Files\\Python312\"",
       "category": "programming",
       "post_install": "pip install -r config/python_libs.txt"
     },
