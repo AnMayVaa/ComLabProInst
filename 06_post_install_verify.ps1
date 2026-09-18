@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     ตรวจสอบว่าลงโปรแกรมครบหรือไม่
 .DESCRIPTION
@@ -6,6 +6,9 @@
 .NOTES
     รันได้ทุกเวลา ไม่ต้องเป็น Admin
 #>
+
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 
 $ErrorActionPreference = "Continue"
 $LogFile = Join-Path $PSScriptRoot "logs\06_verify.log"
@@ -25,11 +28,32 @@ function Write-Log {
     )
     $logsDir = Join-Path $PSScriptRoot "logs"
     if (-not (Test-Path $logsDir)) { New-Item -ItemType Directory -Path $logsDir -Force | Out-Null }
-    Add-Content -Path $LogFile -Value $logEntry
+    Add-Content -Path $LogFile -Value $logEntry -Encoding UTF8
 }
 
 Write-Log "========== เริ่มตรวจสอบการติดตั้ง =========="
 Write-Host ""
+
+# ─────────────────────────────────────────────
+# ค้นหา winget
+# ─────────────────────────────────────────────
+$wingetExe = $null
+if (Get-Command winget -ErrorAction SilentlyContinue) {
+    $wingetExe = "winget"
+}
+else {
+    $searchPaths = @(
+        "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe",
+        "C:\Users\ADMIN\AppData\Local\Microsoft\WindowsApps\winget.exe",
+        "C:\Users\Administrator\AppData\Local\Microsoft\WindowsApps\winget.exe"
+    )
+    foreach ($p in $searchPaths) {
+        if (Test-Path $p) {
+            $wingetExe = $p
+            break
+        }
+    }
+}
 
 # ─────────────────────────────────────────────
 # รายการตรวจสอบ
@@ -64,7 +88,7 @@ $checks = @(
 )
 
 # ─────────────────────────────────────────────
-# ตรวจสอบ
+# ตรวจสอบทีละรายการ
 # ─────────────────────────────────────────────
 $results = @()
 
@@ -73,14 +97,14 @@ foreach ($check in $checks) {
     $version = "N/A"
     $location = "N/A"
 
-    # 1. ลองหาจาก PATH
+    # 1. ค้นหาจาก PATH
     $cmdResult = Get-Command $check.Cmd -ErrorAction SilentlyContinue
     if ($cmdResult) {
         $found = $true
         $location = $cmdResult.Source
     }
 
-    # 2. ลองหาจาก explicit paths
+    # 2. ค้นหาจากโฟลเดอร์ Path ตรงๆ
     if (-not $found -and $check.Paths) {
         foreach ($path in $check.Paths) {
             $resolvedPaths = Resolve-Path $path -ErrorAction SilentlyContinue
@@ -92,10 +116,11 @@ foreach ($check in $checks) {
         }
     }
 
-    # 3. ลอง winget list
-    if (-not $found) {
-        $wingetCheck = winget list --name $check.Name --accept-source-agreements 2>&1 | Out-String
-        if ($wingetCheck -match $check.Name -and $wingetCheck -notmatch "No installed package") {
+    # 3. ลองค้นหาผ่าน winget list
+    if (-not $found -and $wingetExe) {
+        $wingetCheck = & $wingetExe list --name $check.Name --accept-source-agreements 2>&1 | Out-String
+        $escapedName = [regex]::Escape($check.Name)
+        if ($wingetCheck -match $escapedName -and $wingetCheck -notmatch "No installed package") {
             $found = $true
             $location = "(winget registered)"
         }
@@ -109,7 +134,7 @@ foreach ($check in $checks) {
         catch { }
     }
 
-    $status = if ($found) { "✅ PASS" } else { "❌ FAIL" }
+    $status = if ($found) { "[PASS]" } else { "[FAIL]" }
     $level = if ($found) { "SUCCESS" } else { "ERROR" }
     Write-Log "$status  $($check.Name)  [$version]  $location" $level
 
@@ -130,14 +155,13 @@ Write-Log "===== ตรวจสอบ Python Libraries ====="
 $pyLibs = @("numpy", "pandas", "matplotlib", "scipy", "sklearn", "jupyter",
             "seaborn", "plotly", "statsmodels", "cv2", "flask", "requests")
 
-# Refresh PATH
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
             [System.Environment]::GetEnvironmentVariable("Path", "User")
 
 foreach ($lib in $pyLibs) {
     $importResult = python -c "import $lib; print(getattr($lib, '__version__', 'ok'))" 2>&1
     $success = ($LASTEXITCODE -eq 0)
-    $status = if ($success) { "✅ PASS" } else { "❌ FAIL" }
+    $status = if ($success) { "[PASS]" } else { "[FAIL]" }
     $level = if ($success) { "SUCCESS" } else { "ERROR" }
     Write-Log "$status  Python: $lib  [$importResult]" $level
 
@@ -161,10 +185,10 @@ foreach ($username in @("Admin", "Student")) {
         $groups = (Get-LocalGroup | Where-Object {
             (Get-LocalGroupMember $_ -ErrorAction SilentlyContinue).Name -like "*\$username"
         }).Name -join ", "
-        Write-Log "✅ User '$username' — Enabled: $($user.Enabled) — Groups: $groups" "SUCCESS"
+        Write-Log "User '$username' -- Enabled: $($user.Enabled) -- Groups: $groups" "SUCCESS"
     }
     else {
-        Write-Log "❌ User '$username' ไม่มี!" "ERROR"
+        Write-Log "User '$username' ไม่มีในระบบ!" "ERROR"
     }
 }
 
@@ -180,8 +204,8 @@ $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 $htmlRows = ""
 foreach ($r in $results) {
     $rowClass = if ($r.Status -eq "PASS") { "pass" } else { "fail" }
-    $statusIcon = if ($r.Status -eq "PASS") { "✅" } else { "❌" }
-    $htmlRows += "        <tr class='$rowClass'><td>$statusIcon $($r.Name)</td><td>$($r.Version)</td><td>$($r.Location)</td></tr>`n"
+    $statusIcon = if ($r.Status -eq "PASS") { "PASS" } else { "FAIL" }
+    $htmlRows += "        <tr class='$rowClass'><td><strong>$statusIcon</strong> $($r.Name)</td><td>$($r.Version)</td><td>$($r.Location)</td></tr>`n"
 }
 
 $html = @"
@@ -189,9 +213,9 @@ $html = @"
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <title>Lab Install Report — $computerName</title>
+    <title>Lab Install Report -- $computerName</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; margin: 40px; background: #f5f5f5; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 40px; background: #f5f5f5; }
         h1 { color: #1a73e8; }
         .summary { display: flex; gap: 20px; margin: 20px 0; }
         .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); min-width: 150px; text-align: center; }
@@ -208,43 +232,43 @@ $html = @"
     </style>
 </head>
 <body>
-    <h1>🖥️ Lab Installation Report</h1>
+    <h1>ECE Lab Installation Report</h1>
     <p><strong>Computer:</strong> $computerName | <strong>Date:</strong> $timestamp</p>
     
     <div class="summary">
         <div class="card pass"><h2>$passCount</h2><p>Passed</p></div>
         <div class="card fail"><h2>$failCount</h2><p>Failed</p></div>
-        <div class="card total"><h2>$total</h2><p>Total</p></div>
+        <div class="card total"><h2>$total</h2><p>Total Checks</p></div>
     </div>
 
     <table>
         <thead>
-            <tr><th>Software</th><th>Version</th><th>Location</th></tr>
+            <tr><th>Software / Library</th><th>Version</th><th>Location</th></tr>
         </thead>
         <tbody>
 $htmlRows
         </tbody>
     </table>
 
-    <p class="footer">Generated by ComLabProInst — ECE Lab Provisioning Script</p>
+    <p class="footer">Generated by ComLabProInst -- ECE Lab Provisioning System</p>
 </body>
 </html>
 "@
 
 $html | Out-File -FilePath $ReportFile -Encoding UTF8
-Write-Log "📊 HTML Report: $ReportFile"
+Write-Log "HTML Report: $ReportFile" "SUCCESS"
 
-# ─────────────────────────────────────────────
 Write-Host ""
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkCyan
-Write-Host "  📊 สรุปผลตรวจสอบ: $passCount/$total ผ่าน" -ForegroundColor $(if ($failCount -eq 0) { "Green" } else { "Yellow" })
+Write-Host "----------------------------------------" -ForegroundColor DarkCyan
+Write-Host "  สรุปผลตรวจสอบ: $passCount/$total ผ่าน" -ForegroundColor $(if ($failCount -eq 0) { "Green" } else { "Yellow" })
 if ($failCount -gt 0) {
-    Write-Host "  ❌ ไม่ผ่าน $failCount รายการ" -ForegroundColor Red
+    Write-Host "  ไม่ผ่าน $failCount รายการ" -ForegroundColor Red
 }
-Write-Host "  📄 Report: $ReportFile" -ForegroundColor Cyan
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkCyan
+Write-Host "  Report: $ReportFile" -ForegroundColor Cyan
+Write-Host "----------------------------------------" -ForegroundColor DarkCyan
 
-# เปิด report ใน browser
-Start-Process $ReportFile
+if (Test-Path $ReportFile) {
+    Start-Process $ReportFile
+}
 
 Write-Log "========== เสร็จสิ้น 06_post_install_verify =========="

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     ลง Python Libraries สำหรับ Data Science
 .DESCRIPTION
@@ -9,6 +9,9 @@
 #>
 
 #Requires -RunAsAdministrator
+
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 
 $ErrorActionPreference = "Continue"
 $LogFile = Join-Path $PSScriptRoot "logs\04_install_python_libs.log"
@@ -28,7 +31,7 @@ function Write-Log {
     )
     $logsDir = Join-Path $PSScriptRoot "logs"
     if (-not (Test-Path $logsDir)) { New-Item -ItemType Directory -Path $logsDir -Force | Out-Null }
-    Add-Content -Path $LogFile -Value $logEntry
+    Add-Content -Path $LogFile -Value $logEntry -Encoding UTF8
 }
 
 Write-Log "========== เริ่มติดตั้ง Python Libraries =========="
@@ -43,13 +46,11 @@ $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";
 
 $pythonCmd = $null
 
-# ลองหา python จาก PATH
 $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
 if (-not $pythonCmd) {
     $pythonCmd = Get-Command python3 -ErrorAction SilentlyContinue
 }
 if (-not $pythonCmd) {
-    # ลองหาจาก default install paths
     $possiblePaths = @(
         "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe",
         "$env:LOCALAPPDATA\Programs\Python\Python313\python.exe",
@@ -61,14 +62,14 @@ if (-not $pythonCmd) {
     foreach ($path in $possiblePaths) {
         if (Test-Path $path) {
             $pythonCmd = $path
-            Write-Log "พบ Python ที่: $path"
+            Write-Log "พบ Python ที่: $path" "INFO"
             break
         }
     }
 }
 
 if (-not $pythonCmd) {
-    Write-Log "❌ ไม่พบ Python! กรุณารัน 02_install_winget_apps.ps1 ก่อน" "ERROR"
+    Write-Log "ไม่พบ Python ในระบบ! กรุณารัน 02_install_winget_apps.ps1 ก่อน" "ERROR"
     exit 1
 }
 
@@ -86,7 +87,7 @@ Write-Log "กำลังอัปเดต pip..."
 # ลง libraries จาก requirements file
 # ─────────────────────────────────────────────
 if (-not (Test-Path $RequirementsFile)) {
-    Write-Log "❌ ไม่พบ requirements file: $RequirementsFile" "ERROR"
+    Write-Log "ไม่พบ requirements file: $RequirementsFile" "ERROR"
     exit 1
 }
 
@@ -95,13 +96,13 @@ Write-Host ""
 
 & $pythonExe -m pip install -r $RequirementsFile 2>&1 | ForEach-Object {
     if ($_ -match "Successfully installed") {
-        Write-Log "  ✅ $_" "SUCCESS"
+        Write-Log "  [SUCCESS] $_" "SUCCESS"
     }
     elseif ($_ -match "already satisfied") {
-        Write-Log "  ⏭️  $_" "INFO"
+        Write-Log "  [SKIP] $_" "INFO"
     }
     elseif ($_ -match "ERROR") {
-        Write-Log "  ❌ $_" "ERROR"
+        Write-Log "  [FAIL] $_" "ERROR"
     }
     else {
         Write-Log "  $_"
@@ -124,11 +125,11 @@ $failedLibs = @()
 foreach ($lib in $testLibs) {
     $result = & $pythonExe -c "import $lib; print($lib.__name__)" 2>&1
     if ($LASTEXITCODE -eq 0) {
-        Write-Log "  ✅ $lib" "SUCCESS"
+        Write-Log "  [PASS] $lib" "SUCCESS"
         $passed++
     }
     else {
-        Write-Log "  ❌ $lib — import ล้มเหลว" "ERROR"
+        Write-Log "  [FAIL] $lib -- import ล้มเหลว" "ERROR"
         $failedLibs += $lib
     }
 }
@@ -136,7 +137,7 @@ foreach ($lib in $testLibs) {
 Write-Host ""
 Write-Log "ผลทดสอบ: $passed/$($testLibs.Count) สำเร็จ"
 if ($failedLibs.Count -gt 0) {
-    Write-Log "❌ Libraries ที่ล้มเหลว: $($failedLibs -join ', ')" "ERROR"
+    Write-Log "Libraries ที่ล้มเหลว: $($failedLibs -join ', ')" "ERROR"
 }
 
 Write-Log "========== เสร็จสิ้น 04_install_python_libs =========="

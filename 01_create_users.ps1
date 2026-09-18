@@ -1,9 +1,9 @@
-<#
+﻿<#
 .SYNOPSIS
     ล้าง Profile/User เก่า และสร้าง Local User Accounts ตามกำหนดสำหรับห้องแลป ECE
 .DESCRIPTION
-    1. ลบ Account และ Profile ผู้ใช้งานเก่าทั้งหมดที่ไม่จำเป็น (เช่น บัญชีนักศึกษารุ่นก่อน, บัญชีชั่วคราว)
-    2. รีเซ็ต/ลบ Account & Profile 'Student' เก่าออก เพื่อสร้างใหม่ให้สะอาดหมดจด
+    1. ลบ Account และ Profile ผู้ใช้งานเก่าทั้งหมดที่ไม่จำเป็น
+    2. รีเซ็ต/ลบ Account & Profile 'Student' เก่าออก เพื่อสร้างใหม่ให้สะอาด
     3. สร้าง/อัปเดต 2 Accounts:
        - Admin (19379371) → กลุ่ม Administrators
        - Student (123456) → กลุ่ม Users เท่านั้น
@@ -12,6 +12,9 @@
 #>
 
 #Requires -RunAsAdministrator
+
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 
 $ErrorActionPreference = "Continue"
 $LogFile = Join-Path $PSScriptRoot "logs\01_create_users.log"
@@ -32,7 +35,7 @@ function Write-Log {
     if (-not (Test-Path $logsDir)) {
         New-Item -ItemType Directory -Path $logsDir -Force | Out-Null
     }
-    Add-Content -Path $LogFile -Value $logEntry
+    Add-Content -Path $LogFile -Value $logEntry -Encoding UTF8
 }
 
 # ─────────────────────────────────────────────
@@ -83,7 +86,7 @@ foreach ($usr in $allLocalUsers) {
 
     # กรณีเป็น Student เก่า -> ลบออกเพื่อสร้างใหม่ให้หมดจด
     if ($uname -ieq "Student") {
-        Write-Log "พบบัญชี 'Student' เก่า — ทำการลบเพื่อเตรียมสร้างใหม่..." "WARNING"
+        Write-Log "พบบัญชี 'Student' เก่า -- ทำการลบเพื่อเตรียมสร้างใหม่..." "WARNING"
         try {
             Remove-LocalUser -Name $uname -ErrorAction Stop
             Write-Log "ลบบัญชี 'Student' เก่าสำเร็จ" "SUCCESS"
@@ -96,18 +99,18 @@ foreach ($usr in $allLocalUsers) {
 
     # ถ้าเป็นบัญชีที่กำลัง Login ใช้งานอยู่ขณะนี้
     if ($uname -ieq $currentUser) {
-        Write-Log "บัญชี '$uname' คือบัญชีที่คุณกำลังใช้งานอยู่ — ข้ามการลบอัตโนมัติ" "WARNING"
+        Write-Log "บัญชี '$uname' คือบัญชีที่คุณกำลังใช้งานอยู่ -- ข้ามการลบอัตโนมัติ" "WARNING"
         continue
     }
 
     # บัญชีอื่น ๆ ที่ไม่ใช่ Admin, Student, System Account -> ลบทิ้งทันที
-    Write-Log "พบบัญชีเก่า/แปลกปลอม: '$uname' — กำลังลบ..." "WARNING"
+    Write-Log "พบบัญชีเก่า/แปลกปลอม: '$uname' -- กำลังลบ..." "WARNING"
     try {
         Remove-LocalUser -Name $uname -ErrorAction Stop
-        Write-Log "✅ ลบบัญชี '$uname' สำเร็จ" "SUCCESS"
+        Write-Log "ลบบัญชี '$uname' สำเร็จ" "SUCCESS"
     }
     catch {
-        Write-Log "❌ ไม่สามารถลบ '$uname': $($_.Exception.Message)" "ERROR"
+        Write-Log "ไม่สามารถลบ '$uname': $($_.Exception.Message)" "ERROR"
     }
 }
 
@@ -122,7 +125,7 @@ try {
     foreach ($p in $profiles) {
         # ถ้ากำลังโหลด/ใช้งานอยู่ (Loaded = True) ให้ข้าม
         if ($p.Loaded) {
-            Write-Log "Profile '$($p.LocalPath)' กำลังถูกใช้งานอยู่ในเซสชันนี้ — ข้าม" "INFO"
+            Write-Log "Profile '$($p.LocalPath)' กำลังถูกใช้งานอยู่ในเซสชันนี้ -- ข้าม" "INFO"
             continue
         }
 
@@ -136,7 +139,7 @@ try {
         Write-Log "กำลังล้าง Profile: '$($p.LocalPath)'..." "WARNING"
         try {
             Remove-CimInstance -InputObject $p -ErrorAction Stop
-            Write-Log "✅ ล้าง Profile '$($p.LocalPath)' สำเร็จ" "SUCCESS"
+            Write-Log "ล้าง Profile '$($p.LocalPath)' สำเร็จ" "SUCCESS"
         }
         catch {
             Write-Log "ลบ CIM Profile ล้มเหลว: $($_.Exception.Message)" "WARNING"
@@ -146,7 +149,7 @@ try {
         if (Test-Path $p.LocalPath) {
             try {
                 Remove-Item -Path $p.LocalPath -Recurse -Force -ErrorAction Stop
-                Write-Log "✅ ลบโฟลเดอร์ตกค้าง '$($p.LocalPath)' สำเร็จ" "SUCCESS"
+                Write-Log "ลบโฟลเดอร์ตกค้าง '$($p.LocalPath)' สำเร็จ" "SUCCESS"
             }
             catch {
                 Write-Log "ไม่สามารถลบโฟลเดอร์ '$($p.LocalPath)': $($_.Exception.Message)" "WARNING"
@@ -189,7 +192,7 @@ foreach ($user in $users) {
         $existingUser = Get-LocalUser -Name $username -ErrorAction SilentlyContinue
 
         if ($existingUser) {
-            Write-Log "User '$username' มีอยู่แล้ว — อัปเดตรหัสผ่าน ข้อมูล และเปิดใช้งาน (Enabled)..." "INFO"
+            Write-Log "User '$username' มีอยู่แล้ว -- อัปเดตรหัสผ่าน ข้อมูล และเปิดใช้งาน (Enabled)..." "INFO"
             Set-LocalUser -Name $username -Password $password -Description $user.Description -FullName $user.FullName
             Enable-LocalUser -Name $username -ErrorAction SilentlyContinue
             Set-LocalUser -Name $username -PasswordNeverExpires $true
@@ -234,7 +237,7 @@ foreach ($user in $users) {
         }
     }
     catch {
-        Write-Log "❌ ผิดพลาดในการจัดการ user '$username': $($_.Exception.Message)" "ERROR"
+        Write-Log "ข้อผิดพลาดในการจัดการ user '$username': $($_.Exception.Message)" "ERROR"
     }
 }
 
@@ -248,6 +251,6 @@ Get-LocalUser | Format-Table Name, Enabled, Description, PasswordRequired -AutoS
 
 Write-Log "========== เสร็จสิ้น 01_create_users =========="
 Write-Host ""
-Write-Host "✅ จัดการลบโปรไฟล์เก่าและสร้าง User Accounts ใหม่เรียบร้อย!" -ForegroundColor Green
-Write-Host "   Admin    → password: 19379371 (Administrators)" -ForegroundColor Cyan
-Write-Host "   Student  → password: 123456   (Users only - Clean Profile)" -ForegroundColor Cyan
+Write-Host " จัดการลบโปรไฟล์เก่าและสร้าง User Accounts ใหม่เรียบร้อย!" -ForegroundColor Green
+Write-Host "   Admin    -> password: 19379371 (Administrators)" -ForegroundColor Cyan
+Write-Host "   Student  -> password: 123456   (Users only - Clean Profile)" -ForegroundColor Cyan

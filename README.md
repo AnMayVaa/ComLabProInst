@@ -26,16 +26,17 @@
 
 ## 🚀 วิธีสั่งติดตั้ง
 
-### วิธีที่ 1: รันทีเดียวทั้งหมด (Master Batch)
-1. คลิกขวาที่ `RUN_ALL.bat`
-2. เลือก **Run as administrator**
-3. กด **Y** เพื่อเริ่ม (ระบบจะล้างโปรไฟล์เก่า, สร้าง Admin/Student, ลงโปรแกรมทั้งหมดให้อัตโนมัติ)
-4. รอประมาณ 30-60 นาที
+### วิธีที่ 1: ดับเบิลคลิกเดียวจบ (Master Batch)
+1. **ดับเบิลคลิก** ที่ `RUN_ALL.bat` (ระบบจะขอสิทธิ์ Administrator / Auto-Elevate ให้อัตโนมัติ ไม่ต้องคลิกขวา)
+2. กด **Y** เพื่อเริ่มกระบวนการทั้งหมด
+3. รอประมาณ 30-60 นาที (ขึ้นอยู่กับความเร็วอินเทอร์เน็ต)
 
-### วิธีที่ 2: รันทีละ step
+### วิธีที่ 2: รันผ่าน PowerShell (Admin)
 ```powershell
-# เปิด PowerShell ด้วยสิทธิ์ Admin แล้วรัน:
 Set-ExecutionPolicy Bypass -Scope Process
+.\main.ps1                     # รันตัวควบคุมหลัก รวม 6 ขั้นตอน
+
+# หรือรันทีละสคริปต์:
 .\01_create_users.ps1          # ล้าง profile เก่า + สร้าง Admin/Student
 .\02_install_winget_apps.ps1   # ลงแอปผ่าน winget
 .\03_install_manual_apps.ps1   # ลง Processing, Pulsar, Eclipse
