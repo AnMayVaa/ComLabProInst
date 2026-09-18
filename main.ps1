@@ -51,8 +51,8 @@ $steps = @(
     @{ File = "02_install_winget_apps.ps1";        Name = "[2/7] ติดตั้ง Software ด้วย winget (Machine-wide)" }
     @{ File = "03_install_manual_apps.ps1";        Name = "[3/7] ติดตั้ง Manual & Shared Apps (LINE, Processing, Dev-C++)" }
     @{ File = "04_install_python_libs.ps1";        Name = "[4/7] ติดตั้ง Python Libraries" }
-    @{ File = "05_configure_student.ps1";          Name = "[5/7] กำหนดค่านโยบายและสิทธิ์ Student Account" }
-    @{ File = "07_create_public_shortcuts.ps1";    Name = "[6/7] สร้าง Desktop Shortcuts บน Public Desktop ให้ทุก User" }
+    @{ File = "05_configure_student.ps1";          Name = "[5/7] ตั้งค่าระบบสำหรับ Student (เปิดสิทธิ์ลง/ลบได้อิสระ)" }
+    @{ File = "07_create_public_shortcuts.ps1";    Name = "[6/7] Clone หน้าจอ Desktop และ AppData จาก Admin สู่ Student" }
     @{ File = "06_post_install_verify.ps1";        Name = "[7/7] ตรวจสอบความถูกต้องของระบบทั้งหมด" }
 )
 

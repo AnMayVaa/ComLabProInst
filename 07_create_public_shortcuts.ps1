@@ -1,12 +1,13 @@
 ﻿<#
 .SYNOPSIS
-    ซิงค์หน้าจอ Desktop ให้ Admin และ Student เห็นเหมือนกัน 100%
+    Clone หน้าจอ Desktop และสภาพแวดล้อมจาก Admin สู่ Student โดยตรง
 .DESCRIPTION
-    1. ตรวจสอบ Shortcuts ที่มีอยู่แล้ว ถ้ามีอยู่แล้วจะไม่สร้างซ้ำ
-    2. ย้าย Shortcuts และไฟล์ทั้งหมดจากหน้าจอ Admin มาไว้ที่ Public Desktop เพื่อให้ Student มองเห็นเหมือนกันทุกอย่าง
-    3. สร้าง Shortcuts โปรแกรมที่ยังขาดอยู่ลงบน Public Desktop
-    4. คัดลอก Shortcuts ทั้งหมดไปไว้ที่ Default User และ Student Desktop เพื่อรับประกันว่าหน้าจอเหมือนกันแน่นอน
-    5. กำหนดสิทธิ์ NTFS (icacls) ให้ Student (Users) สามารถเปิดและใช้งานโปรแกรมได้ทุกตัว
+    1. ทำความสะอาด Public Desktop ไม่ให้มีไอคอนรกเกินไป
+    2. Clone หน้าจอ Desktop จาก Admin (C:\Users\Admin\Desktop) ไปยัง Student Desktop 1:1
+    3. Clone โปรแกรมระดับ User (เช่น LINE Desktop) จาก Admin AppData ไปยัง Student AppData พร้อมสร้าง Shortcut ใช้งานได้จริง 100%
+    4. แก้ไข TargetPath ของทุก Shortcut ให้ชี้เข้าโปรไฟล์ของ Student อย่างถูกต้อง
+    5. ซิงค์ไปยัง Default User Desktop Template เพื่อรับประกันความเหมือนกันทุกครั้งที่สร้าง User
+    6. เปิดสิทธิ์ Full Control ให้ Student สามารถใช้งาน ลง และลบไฟล์ได้อย่างอิสระ
 #>
 
 #Requires -RunAsAdministrator
@@ -36,370 +37,199 @@ function Write-Log {
     Add-Content -Path $LogFile -Value $logEntry -Encoding UTF8
 }
 
-Write-Log "========== เริ่มซิงค์หน้าจอ Desktop ให้ Admin และ Student เหมือนกัน 100% =========="
-Write-Log "เป้าหมาย Public Desktop: $PublicDesktop"
+Write-Log "========== เริ่มกระบวนการ Clone สภาพแวดล้อมและ Desktop จาก Admin -> Student =========="
 
 # ─────────────────────────────────────────────
-# 1. ย้าย Shortcuts และไฟล์จาก Admin Desktop สู่ Public Desktop
-# เพื่อให้สิ่งที่ Admin เห็นบนหน้าจอ ปรากฏให้ Student เห็นด้วยทั้งหมด
+# 1. กำหนดโฟลเดอร์ต้นทาง (Admin) และปลายทาง (Student, Default)
+# ─────────────────────────────────────────────
+$adminDesktop = "C:\Users\Admin\Desktop"
+if (-not (Test-Path $adminDesktop)) {
+    $adminDesktop = "$env:USERPROFILE\Desktop"
+}
+
+$studentProfile = "C:\Users\Student"
+$studentDesktop = "C:\Users\Student\Desktop"
+$defaultDesktop = "C:\Users\Default\Desktop"
+
+if (-not (Test-Path $studentDesktop)) {
+    New-Item -ItemType Directory -Path $studentDesktop -Force | Out-Null
+}
+if (-not (Test-Path $defaultDesktop)) {
+    New-Item -ItemType Directory -Path $defaultDesktop -Force | Out-Null
+}
+
+Write-Log "ต้นทาง Admin Desktop : $adminDesktop"
+Write-Log "ปลายทาง Student Desktop : $studentDesktop"
+
+# ─────────────────────────────────────────────
+# 2. เคลียร์ไอคอนส่วนเกินใน Public Desktop เพื่อแก้ปัญหา 'icon เยอะเกิน'
 # ─────────────────────────────────────────────
 Write-Host ""
-Write-Host "--- [1/4] ซิงค์ไฟล์และ Shortcuts จากหน้าจอ Admin สู่ Public Desktop ---" -ForegroundColor DarkCyan
+Write-Host "--- [1/5] เคลียร์ Public Desktop เพื่อลดความรกของไอคอน ---" -ForegroundColor DarkCyan
 
-$adminDesktopPaths = @(
-    "$env:USERPROFILE\Desktop",
-    "C:\Users\Admin\Desktop",
-    "C:\Users\Administrator\Desktop"
-) | Select-Object -Unique
+# รายการโปรแกรมที่ไม่จำเป็น หรือชื่อซ้ำซ้อนบน Public Desktop ให้ลบออก
+$redundantShortcuts = @(
+    "Python 3.12.lnk",
+    "IDLE (Python 3.12).lnk",
+    "Jupyter Notebook.lnk",
+    "LabFiles*.lnk",
+    "Pulsar*.lnk"
+)
+foreach ($pat in $redundantShortcuts) {
+    Get-ChildItem -Path $PublicDesktop -Filter $pat -ErrorAction SilentlyContinue | ForEach-Object {
+        Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
+        Write-Log "ลบ Shortcut ส่วนเกิน: $($_.Name)" "INFO"
+    }
+}
 
-# รายการไฟล์ที่ไม่ต้องซิงค์ (ไฟล์ระบบและสคริปต์ติดตั้ง)
+# ─────────────────────────────────────────────
+# 3. Clone หน้าจอ Admin Desktop ไปยัง Student Desktop 1:1
+# ─────────────────────────────────────────────
+Write-Host ""
+Write-Host "--- [2/5] Clone หน้าจอ Desktop จาก Admin สู่ Student ---" -ForegroundColor DarkCyan
+
 $excludePatterns = @("desktop.ini", "*.bat", "*.ps1", "*.cmd", "*.log", ".git*")
 
-foreach ($adPath in $adminDesktopPaths) {
-    if ((Test-Path $adPath) -and ($adPath -ne $PublicDesktop)) {
-        Write-Log "กำลังตรวจสอบหน้าจอ Admin: $adPath" "INFO"
-        
-        # 1.1 จัดการไฟล์ Shortcut (.lnk)
-        $adminLinks = Get-ChildItem -Path $adPath -Filter "*.lnk" -ErrorAction SilentlyContinue
-        foreach ($lnk in $adminLinks) {
-            try {
-                $destPath = Join-Path $PublicDesktop $lnk.Name
-                if (Test-Path $destPath) {
-                    # มีบน Public Desktop แล้ว ลบตัวซ้ำใน Admin เพื่อไม่ให้มีไอคอนเบิ้ล
-                    Remove-Item -Path $lnk.FullName -Force -ErrorAction SilentlyContinue
-                    Write-Log "[DEDUP] ลบ Shortcut ซ้ำบน Admin Desktop: $($lnk.Name)" "SKIP"
-                } else {
-                    # ย้ายไป Public Desktop เพื่อให้ Student เห็นด้วย
-                    Move-Item -Path $lnk.FullName -Destination $destPath -Force -ErrorAction SilentlyContinue
-                    Write-Log "[SHARED] ย้าย Shortcut '$($lnk.Name)' ไปยังหน้าจอหลัก (Public Desktop)" "SUCCESS"
-                }
-            } catch {}
-        }
-
-        # 1.2 จัดการไฟล์/โฟลเดอร์อื่นๆ ที่ Admin วางไว้บนหน้าจอ (เช่น ไฟล์งาน, เอกสาร)
-        $otherItems = Get-ChildItem -Path $adPath -ErrorAction SilentlyContinue | Where-Object {
-            $item = $_
-            $isExcluded = $false
-            foreach ($pat in $excludePatterns) {
-                if ($item.Name -like $pat) { $isExcluded = $true; break }
-            }
-            (-not $isExcluded) -and ($item.Extension -ne ".lnk")
-        }
-
-        foreach ($item in $otherItems) {
-            try {
-                $destItem = Join-Path $PublicDesktop $item.Name
-                if (-not (Test-Path $destItem)) {
-                    Copy-Item -Path $item.FullName -Destination $destItem -Recurse -Force -ErrorAction SilentlyContinue
-                    Write-Log "[SYNC] คัดลอก '$($item.Name)' ไปยัง Public Desktop ให้ Student มองเห็นด้วย" "SUCCESS"
-                }
-            } catch {}
-        }
+$adminItems = Get-ChildItem -Path $adminDesktop -ErrorAction SilentlyContinue | Where-Object {
+    $item = $_
+    $isExcluded = $false
+    foreach ($pat in $excludePatterns) {
+        if ($item.Name -like $pat) { $isExcluded = $true; break }
     }
+    -not $isExcluded
 }
 
-# ─────────────────────────────────────────────
-# 2. ฟังก์ชันตรวจสอบและสร้าง Shortcut
-# (ถ้ามีอยู่แล้วหน้า Desktop หรือมี Shortcut ชี้ไปยังโปรแกรมเดียวกัน จะข้ามทันที)
-# ─────────────────────────────────────────────
-function Create-PublicShortcut {
-    param(
-        [string]$Name,
-        [string[]]$CandidatePaths,
-        [string]$Arguments = ""
-    )
-
-    $targetExe = $null
-    foreach ($path in $CandidatePaths) {
-        $resolved = Resolve-Path $path -ErrorAction SilentlyContinue
-        if ($resolved) {
-            $targetExe = $resolved[-1].Path
-            break
-        }
-    }
-
-    if (-not $targetExe) {
-        Write-Log "[NOT FOUND] ไม่พบ $Name ในระบบ -- ข้าม" "WARNING"
-        return $false
-    }
-
-    # 1. ถ้ามี Shortcut ชื่อนี้อยู่แล้วบน Desktop ให้ข้ามทันที
-    $shortcutPath = Join-Path $PublicDesktop "$Name.lnk"
-    if (Test-Path $shortcutPath) {
-        Write-Log "[SKIP] มี Shortcut '$Name.lnk' อยู่บน Desktop แล้ว -- ข้าม" "SKIP"
-        return $true
-    }
-
-    # 2. ถ้ามี Shortcut อื่นที่ชี้ไปยังไฟล์ .exe เดียวกันอยู่แล้ว ให้ข้ามทันที
-    $allExistingLnk = Get-ChildItem -Path $PublicDesktop -Filter "*.lnk" -ErrorAction SilentlyContinue
-    foreach ($lnk in $allExistingLnk) {
-        try {
-            $sc = $WshShell.CreateShortcut($lnk.FullName)
-            if ($sc.TargetPath -ieq $targetExe) {
-                Write-Log "[SKIP] มี Shortcut ที่ชี้ไปยัง $Name อยู่แล้ว ($($lnk.Name)) -- ข้าม" "SKIP"
-                return $true
-            }
-        } catch {}
-    }
-
-    # 3. ถ้ายังไม่มีบนหน้าจอ ให้สร้างใหม่
+$clonedCount = 0
+foreach ($item in $adminItems) {
     try {
-        $shortcut = $WshShell.CreateShortcut($shortcutPath)
-        $shortcut.TargetPath = $targetExe
-        $shortcut.WorkingDirectory = Split-Path $targetExe
-        if ($Arguments) {
-            $shortcut.Arguments = $Arguments
+        Copy-Item -Path $item.FullName -Destination $studentDesktop -Recurse -Force -ErrorAction SilentlyContinue
+        Copy-Item -Path $item.FullName -Destination $defaultDesktop -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Log "[CLONE] คัดลอก '$($item.Name)' ไปยัง Student Desktop สำเร็จ" "SUCCESS"
+        $clonedCount++
+    } catch {
+        Write-Log "คัดลอก $($item.Name) ล้มเหลว: $($_.Exception.Message)" "WARNING"
+    }
+}
+
+Write-Log "Clone ไอคอนและไฟล์สำเร็จทั้งหมด $clonedCount รายการ" "SUCCESS"
+
+# ─────────────────────────────────────────────
+# 4. จัดการ LINE Desktop ให้ Student ใช้งานได้ 100%
+# ─────────────────────────────────────────────
+Write-Host ""
+Write-Host "--- [3/5] Clone และตั้งค่า LINE Desktop ให้ Student ใช้งานได้จริง ---" -ForegroundColor DarkCyan
+
+$adminLineDir = "C:\Users\Admin\AppData\Local\LINE"
+if (-not (Test-Path $adminLineDir)) {
+    $adminLineDir = "$env:LOCALAPPDATA\LINE"
+}
+
+$studentLineDir = "C:\Users\Student\AppData\Local\LINE"
+$defaultLineDir = "C:\Users\Default\AppData\Local\LINE"
+
+if (Test-Path $adminLineDir) {
+    Write-Log "พบ LINE ติดตั้งอยู่ที่ $adminLineDir -- กำลัง Clone สำหรับ Student..." "INFO"
+    
+    # สร้างโฟลเดอร์ปลายทาง
+    $studentAppLocal = "C:\Users\Student\AppData\Local"
+    if (-not (Test-Path $studentAppLocal)) { New-Item -ItemType Directory -Path $studentAppLocal -Force | Out-Null }
+    
+    # Clone โฟลเดอร์โปรแกรม LINE
+    Copy-Item -Path $adminLineDir -Destination $studentAppLocal -Recurse -Force -ErrorAction SilentlyContinue
+    
+    $defaultAppLocal = "C:\Users\Default\AppData\Local"
+    if (-not (Test-Path $defaultAppLocal)) { New-Item -ItemType Directory -Path $defaultAppLocal -Force | Out-Null }
+    Copy-Item -Path $adminLineDir -Destination $defaultAppLocal -Recurse -Force -ErrorAction SilentlyContinue
+    
+    # ล้าง Session และ Cache ของ Admin ออก เพื่อให้ Student เปิดมาเจอกล่องล็อกอินใหม่สะอาด
+    Remove-Item -Path "$studentLineDir\Data\session*" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$studentLineDir\Data\Cache\*" -Recurse -Force -ErrorAction SilentlyContinue
+    
+    # สร้าง Shortcut บนหน้าจอ Student ที่ชี้ตรงไปยัง LineLauncher ของ Student เอง
+    $studentLineExe = "$studentLineDir\bin\LineLauncher.exe"
+    if (Test-Path $studentLineExe) {
+        $lineLnkPath = Join-Path $studentDesktop "LINE.lnk"
+        $lineSc = $WshShell.CreateShortcut($lineLnkPath)
+        $lineSc.TargetPath = $studentLineExe
+        $lineSc.WorkingDirectory = "$studentLineDir\bin"
+        $lineSc.Save()
+        
+        Copy-Item $lineLnkPath (Join-Path $defaultDesktop "LINE.lnk") -Force -ErrorAction SilentlyContinue
+        Write-Log "สร้าง Shortcut LINE สำหรับ Student สำเร็จ (พร้อมล็อกอินใช้งานได้ทันที)" "SUCCESS"
+    }
+} else {
+    Write-Log "ไม่พบ LINE ใน $adminLineDir" "WARNING"
+}
+
+# ─────────────────────────────────────────────
+# 5. Clone และแก้ไขโปรแกรมอื่นใน AppData (เช่น VS Code, Thonny, GitHub Desktop)
+# ─────────────────────────────────────────────
+Write-Host ""
+Write-Host "--- [4/5] ปรับแต่ง Shortcut และ AppData ทั้งหมดให้ Student ---" -ForegroundColor DarkCyan
+
+$appDataApps = @(
+    "GitHubDesktop",
+    "Programs\Microsoft VS Code",
+    "Programs\Thonny"
+)
+
+foreach ($rel in $appDataApps) {
+    $srcPath = "C:\Users\Admin\AppData\Local\$rel"
+    if (Test-Path $srcPath) {
+        $dstPath = "C:\Users\Student\AppData\Local\$rel"
+        if (-not (Test-Path $dstPath)) {
+            $parent = Split-Path $dstPath
+            if (-not (Test-Path $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
+            Copy-Item -Path $srcPath -Destination $parent -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Log "Clone AppData: $rel -> Student สำเร็จ" "SUCCESS"
         }
-        $shortcut.Save()
-
-        # ให้สิทธิ์ Users อ่านและเปิดใช้งานได้
-        $appDir = Split-Path $targetExe
-        icacls "$appDir" /grant "Users:(OI)(CI)RX" /Q 2>&1 | Out-Null
-
-        Write-Log "[SUCCESS] สร้าง Shortcut: $Name -> $shortcutPath" "SUCCESS"
-        return $true
-    }
-    catch {
-        Write-Log "[FAIL] สร้าง Shortcut ล้มเหลว: ${Name} - $($_.Exception.Message)" "ERROR"
-        return $false
     }
 }
 
-# ─────────────────────────────────────────────
-# 3. รายการโปรแกรมมาตรฐานของห้องแลป
-# ─────────────────────────────────────────────
-Write-Host ""
-Write-Host "--- [2/4] ตรวจสอบโปรแกรมทั้งหมดและสร้าง Shortcuts ที่ยังขาด ---" -ForegroundColor DarkCyan
-
-$appDefinitions = @(
-    @{
-        Name = "Python 3.12"
-        Paths = @(
-            "C:\Program Files\Python312\python.exe",
-            "$env:ProgramFiles\Python312\python.exe",
-            "C:\Python312\python.exe"
-        )
-    },
-    @{
-        Name = "IDLE (Python 3.12)"
-        Paths = @(
-            "C:\Program Files\Python312\Lib\idlelib\idle.bat",
-            "$env:ProgramFiles\Python312\Lib\idlelib\idle.bat"
-        )
-    },
-    @{
-        Name = "Jupyter Notebook"
-        Paths = @(
-            "C:\Program Files\Python312\Scripts\jupyter-notebook.exe",
-            "$env:ProgramFiles\Python312\Scripts\jupyter-notebook.exe"
-        )
-    },
-    @{
-        Name = "Google Chrome"
-        Paths = @(
-            "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
-            "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
-        )
-    },
-    @{
-        Name = "Visual Studio Code"
-        Paths = @(
-            "$env:ProgramFiles\Microsoft VS Code\Code.exe",
-            "${env:ProgramFiles(x86)}\Microsoft VS Code\Code.exe",
-            "$env:LOCALAPPDATA\Programs\Microsoft VS Code\Code.exe",
-            "C:\Users\ADMIN\AppData\Local\Programs\Microsoft VS Code\Code.exe"
-        )
-    },
-    @{
-        Name = "Dev-C++"
-        Paths = @(
-            "$env:ProgramFiles\Embarcadero\Dev-Cpp\devcpp.exe",
-            "${env:ProgramFiles(x86)}\Embarcadero\Dev-Cpp\devcpp.exe",
-            "C:\Program Files (x86)\Dev-Cpp\devcpp.exe",
-            "C:\Program Files\Dev-Cpp\devcpp.exe"
-        )
-    },
-    @{
-        Name = "CodeBlocks"
-        Paths = @(
-            "$env:ProgramFiles\CodeBlocks\codeblocks.exe",
-            "${env:ProgramFiles(x86)}\CodeBlocks\codeblocks.exe"
-        )
-    },
-    @{
-        Name = "Arduino IDE"
-        Paths = @(
-            "$env:ProgramFiles\Arduino IDE\Arduino IDE.exe",
-            "$env:LOCALAPPDATA\Programs\Arduino IDE\Arduino IDE.exe",
-            "C:\Users\ADMIN\AppData\Local\Programs\Arduino IDE\Arduino IDE.exe"
-        )
-    },
-    @{
-        Name = "IntelliJ IDEA Community"
-        Paths = @(
-            "$env:ProgramFiles\JetBrains\IntelliJ IDEA Community Edition*\bin\idea64.exe"
-        )
-    },
-    @{
-        Name = "Processing"
-        Paths = @(
-            "C:\Program Files\Processing 4\processing.exe",
-            "C:\Program Files\Processing\processing.exe",
-            "${env:ProgramFiles(x86)}\Processing\processing.exe",
-            "C:\Processing\processing.exe"
-        )
-    },
-    @{
-        Name = "Thonny"
-        Paths = @(
-            "$env:ProgramFiles\Thonny\thonny.exe",
-            "${env:ProgramFiles(x86)}\Thonny\thonny.exe",
-            "$env:LOCALAPPDATA\Programs\Thonny\thonny.exe",
-            "C:\Users\ADMIN\AppData\Local\Programs\Thonny\thonny.exe"
-        )
-    },
-    @{
-        Name = "LINE"
-        Paths = @(
-            "C:\Program Files\LINE\bin\LineLauncher.exe",
-            "${env:ProgramFiles(x86)}\LINE\bin\LineLauncher.exe",
-            "$env:LOCALAPPDATA\LINE\bin\LineLauncher.exe",
-            "C:\Users\ADMIN\AppData\Local\LINE\bin\LineLauncher.exe"
-        )
-    },
-    @{
-        Name = "SQL Server Management Studio"
-        Paths = @(
-            "${env:ProgramFiles(x86)}\Microsoft SQL Server Management Studio*\Common7\\IDE\Ssms.exe",
-            "$env:ProgramFiles\Microsoft SQL Server Management Studio*\Common7\\IDE\Ssms.exe",
-            "C:\Program Files\Microsoft SQL Server Management Studio *\Common7\\IDE\Ssms.exe",
-            "C:\Program Files (x86)\Microsoft SQL Server Management Studio *\Common7\\IDE\Ssms.exe"
-        )
-    },
-    @{
-        Name = "RStudio"
-        Paths = @(
-            "$env:ProgramFiles\RStudio\rstudio.exe",
-            "$env:ProgramFiles\Posit\RStudio\rstudio.exe"
-        )
-    },
-    @{
-        Name = "Git Bash"
-        Paths = @(
-            "$env:ProgramFiles\Git\git-bash.exe",
-            "${env:ProgramFiles(x86)}\Git\git-bash.exe"
-        )
-    },
-    @{
-        Name = "GitHub Desktop"
-        Paths = @(
-            "$env:ProgramFiles\GitHub Desktop\GitHubDesktop.exe",
-            "$env:LOCALAPPDATA\GitHubDesktop\GitHubDesktop.exe",
-            "C:\Users\ADMIN\AppData\Local\GitHubDesktop\GitHubDesktop.exe"
-        )
-    },
-    @{
-        Name = "Wireshark"
-        Paths = @(
-            "$env:ProgramFiles\Wireshark\Wireshark.exe"
-        )
-    },
-    @{
-        Name = "Oracle VirtualBox"
-        Paths = @(
-            "$env:ProgramFiles\Oracle\VirtualBox\VirtualBox.exe"
-        )
-    },
-    @{
-        Name = "Raspberry Pi Imager"
-        Paths = @(
-            "$env:ProgramFiles\Raspberry Pi Imager\rpi-imager.exe",
-            "${env:ProgramFiles(x86)}\Raspberry Pi Imager\rpi-imager.exe"
-        )
-    },
-    @{
-        Name = "Pulsar (Atom)"
-        Paths = @(
-            "$env:ProgramFiles\Pulsar\Pulsar.exe",
-            "$env:LOCALAPPDATA\Programs\Pulsar\Pulsar.exe"
-        )
-    },
-    @{
-        Name = "Eclipse C++"
-        Paths = @(
-            "C:\Eclipse\eclipse.exe",
-            "$env:ProgramFiles\Eclipse\eclipse.exe"
-        )
-    },
-    @{
-        Name = "Intel Quartus Prime"
-        Paths = @(
-            "C:\intelFPGA_lite\*\quartus\bin64\quartus.exe",
-            "$env:ProgramFiles\intelFPGA_lite\*\quartus\bin64\quartus.exe"
-        )
-    },
-    @{
-        Name = "Cisco Packet Tracer"
-        Paths = @(
-            "$env:ProgramFiles\Cisco Packet Tracer*\bin\PacketTracer.exe",
-            "${env:ProgramFiles(x86)}\Cisco Packet Tracer*\bin\PacketTracer.exe"
-        )
-    }
-)
-
-foreach ($app in $appDefinitions) {
-    Create-PublicShortcut -Name $app.Name -CandidatePaths $app.Paths | Out-Null
+# ตรวจสอบและแก้ไขทุก Shortcut บนหน้าจอ Student ที่ชี้ไปยัง C:\Users\Admin ให้ชี้เข้า C:\Users\Student แทน
+$allStudentShortcuts = Get-ChildItem -Path $studentDesktop -Filter "*.lnk" -ErrorAction SilentlyContinue
+foreach ($s in $allStudentShortcuts) {
+    try {
+        $sc = $WshShell.CreateShortcut($s.FullName)
+        $target = $sc.TargetPath
+        $modified = $false
+        
+        # ถ้า Target ชี้ไปที่ Admin AppData ให้เปลี่ยนเป็น Student AppData
+        if ($target -like "C:\Users\Admin\*") {
+            $sc.TargetPath = $target -replace "C:\\Users\\Admin", "C:\Users\Student"
+            $modified = $true
+        }
+        if ($sc.WorkingDirectory -like "C:\Users\Admin\*") {
+            $sc.WorkingDirectory = $sc.WorkingDirectory -replace "C:\\Users\\Admin", "C:\Users\Student"
+            $modified = $true
+        }
+        
+        # สำหรับ VS Code ถ้ามีใน Program Files ให้เปลี่ยนมาชี้ที่ Program Files เลย
+        if ($s.Name -like "*Code*" -and (Test-Path "$env:ProgramFiles\Microsoft VS Code\Code.exe")) {
+            $sc.TargetPath = "$env:ProgramFiles\Microsoft VS Code\Code.exe"
+            $sc.WorkingDirectory = "$env:ProgramFiles\Microsoft VS Code"
+            $modified = $true
+        }
+        
+        if ($modified) {
+            $sc.Save()
+            Write-Log "ปรับแต่ง Shortcut: $($s.Name) ให้เปิดในบริบทของ Student ได้สมบูรณ์" "SUCCESS"
+        }
+    } catch {}
 }
 
 # ─────────────────────────────────────────────
-# 4. คัดลอกสู่ Default User & Student Desktop และเปิดสิทธิ์ NTFS
+# 6. กำหนดสิทธิ์ให้ Student สามารถลง/ลบ/แก้ไขไฟล์ได้อิสระ
 # ─────────────────────────────────────────────
 Write-Host ""
-Write-Host "--- [3/4] รับประกันความเหมือนกันระหว่าง Admin และ Student ---" -ForegroundColor DarkCyan
+Write-Host "--- [5/5] กำหนดสิทธิ์ Full Control ให้ Student ---" -ForegroundColor DarkCyan
 
-# ให้สิทธิ์กลุ่ม Users (Student) เข้าถึง Public Desktop
-icacls "$PublicDesktop" /grant "Users:(OI)(CI)RX" /Q 2>&1 | Out-Null
+Write-Log "กำหนดสิทธิ์ Full Control ให้ Student Account..." "INFO"
+icacls "C:\Users\Student" /grant "Student:(OI)(CI)F" /T /Q 2>&1 | Out-Null
+icacls "C:\Users\Student" /grant "Administrators:(OI)(CI)F" /T /Q 2>&1 | Out-Null
 
-# คัดลอก Shortcuts และไฟล์ทั้งหมดไปยัง Default User Desktop Template
-# เพื่อให้ทุกบัญชีใหม่ที่สร้างขึ้น ได้รับหน้าจอ Desktop ที่เหมือนกันทันที
-$defaultDesktop = "C:\Users\Default\Desktop"
-if (Test-Path $defaultDesktop) {
-    Copy-Item -Path "$PublicDesktop\*" -Destination $defaultDesktop -Recurse -Force -ErrorAction SilentlyContinue
-    Write-Log "ซิงค์หน้าจอไปยัง Default User Template สำเร็จ" "INFO"
-}
-
-# ถ้ามีโฟลเดอร์ Student Desktop อยู่แล้ว ให้คัดลอกไฟล์ทั้งหมดไปใส่ และเปิดสิทธิ์ให้ Student
-$studentDesktop = "C:\Users\Student\Desktop"
-if (Test-Path $studentDesktop) {
-    Copy-Item -Path "$PublicDesktop\*" -Destination $studentDesktop -Recurse -Force -ErrorAction SilentlyContinue
-    icacls "$studentDesktop" /grant "Users:(OI)(CI)F" /Q 2>&1 | Out-Null
-    Write-Log "ซิงค์หน้าจอไปยัง Student Desktop สำเร็จ" "INFO"
-}
-
-# ─────────────────────────────────────────────
-# 5. เปิดสิทธิ์การใช้งานโปรแกรมให้ Student (Users)
-# ─────────────────────────────────────────────
+Write-Log "========== เสร็จสิ้นการ Clone จาก Admin -> Student เรียบร้อย =========="
 Write-Host ""
-Write-Host "--- [4/4] เปิดสิทธิ์การรันโปรแกรมให้ Student ---" -ForegroundColor DarkCyan
-
-$appFoldersToGrant = @(
-    "C:\Program Files\Python312",
-    "C:\Program Files\LINE",
-    "C:\Processing",
-    "C:\Eclipse",
-    "C:\Users\ADMIN\AppData\Local\Programs\Microsoft VS Code",
-    "C:\Users\ADMIN\AppData\Local\Programs\Thonny",
-    "C:\Users\ADMIN\AppData\Local\LINE",
-    "C:\Users\ADMIN\AppData\Local\GitHubDesktop"
-)
-
-foreach ($f in $appFoldersToGrant) {
-    if (Test-Path $f) {
-        icacls "$f" /grant "Users:(OI)(CI)RX" /T /Q 2>&1 | Out-Null
-    }
-}
-
-Write-Log "========== เสร็จสิ้น: หน้าจอ Desktop ของ Admin และ Student เหมือนกัน 100% เรียบร้อย =========="
-Write-Host ""
-Write-Host "✅ หน้าจอ Desktop ของ Admin และ Student มีโปรแกรมและไฟล์เหมือนกันทุกประการ!" -ForegroundColor Green
-Write-Host "🔒 ความแตกต่าง: Admin มีสิทธิ์ตั้งค่าระบบและลงโปรแกรม ส่วน Student เป็น Standard User" -ForegroundColor Cyan
+Write-Host "✅ Clone หน้าจอ Desktop จาก Admin ให้ Student เรียบร้อย (เหมือนกัน 100% ไม่รก ไม่ซ้ำ)!" -ForegroundColor Green
+Write-Host "✅ โปรแกรม LINE และแอปทั้งหมดเปิดใช้งานบน Student ได้สมบูรณ์แล้ว!" -ForegroundColor Green
+Write-Host "✅ Student มีสิทธิ์ลง/ลบอะไรก็ได้ตามต้องการ (เดี๋ยวเจ้าหน้าที่ค่อยรีเซ็ตคืนสภาพ)!" -ForegroundColor Green

@@ -57,14 +57,15 @@ catch {
 }
 
 # ─────────────────────────────────────────────
-# 1. ตั้งค่า UAC ให้ถาม Admin password เวลาลง software
+# 1. ตั้งค่า UAC ให้ Student ลง/ลบโปรแกรมได้โดยไม่ติดถามรหัสผ่าน
 # ─────────────────────────────────────────────
-Write-Log "ตั้งค่า UAC..."
+Write-Log "ตั้งค่า UAC ให้สามารถลง/ลบโปรแกรมได้สะดวก..."
 
 $uacPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
-Set-ItemProperty -Path $uacPath -Name "ConsentPromptBehaviorUser" -Value 1 -Type DWord
 Set-ItemProperty -Path $uacPath -Name "EnableLUA" -Value 1 -Type DWord
-Write-Log "UAC ตั้งให้ถาม Admin credentials เวลาลง software" "SUCCESS"
+Set-ItemProperty -Path $uacPath -Name "ConsentPromptBehaviorAdmin" -Value 0 -Type DWord
+Set-ItemProperty -Path $uacPath -Name "ConsentPromptBehaviorUser" -Value 0 -Type DWord
+Write-Log "UAC ตั้งค่าเรียบร้อย (Student ใช้งานและลงโปรแกรมได้อิสระ)" "SUCCESS"
 
 # ─────────────────────────────────────────────
 # 2. ตั้งค่า Registry สำหรับ Student

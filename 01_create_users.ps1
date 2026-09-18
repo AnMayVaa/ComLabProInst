@@ -180,7 +180,7 @@ $users = @(
         Password    = "123456"
         FullName    = "Lab Student"
         Description = "นักศึกษาใช้งานห้องแลป ECE"
-        Group       = "Users"
+        Group       = "Administrators"
     }
 )
 
@@ -226,13 +226,13 @@ foreach ($user in $users) {
             Write-Log "'$username' อยู่ในกลุ่ม '$groupName' แล้ว" "INFO"
         }
 
-        # ถ้าเป็น Student ต้องมั่นใจว่าไม่ได้อยู่ใน Administrators
+        # ให้ Student อยู่ใน Administrators เพื่อให้สามารถลง/ลบโปรแกรมในการเรียนได้อิสระ
         if ($username -eq "Student") {
             $isAdmin = Get-LocalGroupMember -Group "Administrators" -ErrorAction SilentlyContinue |
                        Where-Object { $_.Name -like "*\Student" }
-            if ($isAdmin) {
-                Remove-LocalGroupMember -Group "Administrators" -Member "Student"
-                Write-Log "ลบ 'Student' ออกจากกลุ่ม 'Administrators'" "WARNING"
+            if (-not $isAdmin) {
+                Add-LocalGroupMember -Group "Administrators" -Member "Student"
+                Write-Log "เพิ่ม 'Student' เข้ากลุ่ม 'Administrators' ตามข้อกำหนด" "SUCCESS"
             }
         }
     }
@@ -253,4 +253,4 @@ Write-Log "========== เสร็จสิ้น 01_create_users =========="
 Write-Host ""
 Write-Host " จัดการลบโปรไฟล์เก่าและสร้าง User Accounts ใหม่เรียบร้อย!" -ForegroundColor Green
 Write-Host "   Admin    -> password: 19379371 (Administrators)" -ForegroundColor Cyan
-Write-Host "   Student  -> password: 123456   (Users only - Clean Profile)" -ForegroundColor Cyan
+Write-Host "   Student  -> password: 123456   (Administrators - Full Access)" -ForegroundColor Cyan
