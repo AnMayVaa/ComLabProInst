@@ -1,9 +1,10 @@
 ﻿<#
 .SYNOPSIS
-    ลงโปรแกรมทั้งหมดด้วย winget (Windows Package Manager)
+    ลงโปรแกรมทั้งหมดด้วย winget (Windows Package Manager) แบบ Machine-wide Scope
 .DESCRIPTION
     ลง software ทุกตัวที่มีใน winget repository แบบ silent install
-    อ่านรายการจาก config/apps_list.json
+    อ่านรายการจาก config/apps_list.json และบังคับติดตั้งแบบ --scope machine
+    เพื่อให้ทุกผู้ใช้งานในเครื่อง (ทั้ง Admin และ Student) สามารถเข้าถึงโปรแกรมได้
 .NOTES
     ต้องรันด้วยสิทธิ์ Administrator
 #>
@@ -40,7 +41,7 @@ function Write-Log {
 # ─────────────────────────────────────────────
 # ค้นหาและตั้งค่า winget
 # ─────────────────────────────────────────────
-Write-Log "========== เริ่มติดตั้ง Software ด้วย winget =========="
+Write-Log "========== เริ่มติดตั้ง Software ด้วย winget (Machine-wide) =========="
 
 $wingetExe = $null
 
@@ -109,7 +110,7 @@ Write-Log "พบ $totalApps โปรแกรมที่ต้องลง"
 Write-Host ""
 
 # ─────────────────────────────────────────────
-# ลงทีละตัว
+# ลงทีละตัว (เน้น --scope machine เพื่อแชร์ให้ทุก User)
 # ─────────────────────────────────────────────
 for ($i = 0; $i -lt $totalApps; $i++) {
     $app = $apps[$i]
@@ -119,28 +120,56 @@ for ($i = 0; $i -lt $totalApps; $i++) {
     Write-Host "----------------------------------------" -ForegroundColor DarkCyan
     Write-Log "$progress กำลังติดตั้ง: $($app.name) ($($app.id))..."
     
-    # ตรวจสอบว่าลงแล้วหรือยัง
-    $checkInstalled = & $wingetExe list --id $app.id --accept-source-agreements 2>&1
-    if ($checkInstalled -match $app.id) {
+    # 1. ตรวจสอบว่าลงแล้วหรือยัง
+    $escapedId = [regex]::Escape($app.id)
+    $checkInstalled = & $wingetExe list --id $app.id --accept-source-agreements 2>&1 | Out-String
+    if ($checkInstalled -match $escapedId -and $checkInstalled -notmatch "No installed package") {
         Write-Log "$progress [SKIP] $($app.name) -- ติดตั้งอยู่แล้ว ข้าม" "SKIP"
         $skipped++
         continue
     }
 
-    # ลงโปรแกรม
+    # 2. ติดตั้งแบบ Scope Machine
     $startTime = Get-Date
     try {
-        $result = & $wingetExe install --id $app.id `
-                                      --silent `
-                                      --accept-package-agreements `
-                                      --accept-source-agreements `
-                                      --disable-interactivity `
-                                      --force 2>&1
+        $argsList = @(
+            "install",
+            "--id", $app.id,
+            "--scope", "machine",
+            "--silent",
+            "--accept-package-agreements",
+            "--accept-source-agreements",
+            "--disable-interactivity",
+            "--force"
+        )
+        if ($app.override) {
+            $argsList += @("--override", $app.override)
+        }
 
+        $result = & $wingetExe @argsList 2>&1
         $exitCode = $LASTEXITCODE
+
+        # ถ้าลง scope machine ไม่ได้ (บางแอปอาจรองรับแค่ user) ให้ retry อัตโนมัติ
+        if ($exitCode -ne 0 -and ($result -match "scope" -or $result -match "No applicable installer" -or $result -match "No installer found")) {
+            Write-Log "$progress [RETRY] ไม่รองรับ scope machine -- กำลังลองติดตั้งใหม่อัตโนมัติ..." "WARNING"
+            $fallbackArgs = @(
+                "install",
+                "--id", $app.id,
+                "--silent",
+                "--accept-package-agreements",
+                "--accept-source-agreements",
+                "--disable-interactivity",
+                "--force"
+            )
+            if ($app.override) { $fallbackArgs += @("--override", $app.override) }
+            $result = & $wingetExe @fallbackArgs 2>&1
+            $exitCode = $LASTEXITCODE
+        }
+
         $duration = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
 
-        if ($exitCode -eq 0 -or $result -match "Successfully installed") {
+        # Exit code 0 หรือ 3010 (Reboot required) หรือข้อความ Successfully installed ถือว่าสำเร็จ
+        if ($exitCode -eq 0 -or $exitCode -eq 3010 -or $result -match "Successfully installed") {
             Write-Log "$progress [SUCCESS] $($app.name) -- สำเร็จ (${duration}s)" "SUCCESS"
             $installed++
         }

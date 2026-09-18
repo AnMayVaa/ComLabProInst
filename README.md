@@ -34,15 +34,16 @@
 ### วิธีที่ 2: รันผ่าน PowerShell (Admin)
 ```powershell
 Set-ExecutionPolicy Bypass -Scope Process
-.\main.ps1                     # รันตัวควบคุมหลัก รวม 6 ขั้นตอน
+.\main.ps1                     # รันตัวควบคุมหลัก รวม 7 ขั้นตอน
 
 # หรือรันทีละสคริปต์:
-.\01_create_users.ps1          # ล้าง profile เก่า + สร้าง Admin/Student
-.\02_install_winget_apps.ps1   # ลงแอปผ่าน winget
-.\03_install_manual_apps.ps1   # ลง Processing, Pulsar, Eclipse
-.\04_install_python_libs.ps1   # ลง Python Data Science libraries
-.\05_configure_student.ps1     # ตั้งค่านโยบายและสิทธิ์ Student
-.\06_post_install_verify.ps1   # ทดสอบและออกรายงานผล HTML
+.\01_create_users.ps1             # 1. ล้าง profile เก่า + สร้าง Admin/Student
+.\02_install_winget_apps.ps1      # 2. ลงแอปผ่าน winget (Machine-wide)
+.\03_install_manual_apps.ps1      # 3. ลง LINE, Processing, Dev-C++, Eclipse, Pulsar
+.\04_install_python_libs.ps1      # 4. ลง Python Data Science libraries
+.\05_configure_student.ps1        # 5. ตั้งค่านโยบายและสิทธิ์ Student
+.\07_create_public_shortcuts.ps1  # 6. สร้าง Desktop Shortcuts บน Public Desktop ให้ทุก User
+.\06_post_install_verify.ps1      # 7. ทดสอบและออกรายงานผล HTML
 ```
 
 ## 📦 Software ที่ลง

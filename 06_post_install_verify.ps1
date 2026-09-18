@@ -63,24 +63,24 @@ $checks = @(
     @{ Name = "Python";              Cmd = "python";       VersionCmd = "python --version" }
     @{ Name = "Oracle JDK 21";       Cmd = "java";         VersionCmd = "java --version" }
     @{ Name = "Thonny";              Cmd = "thonny";       Paths = @("$env:ProgramFiles\Thonny\thonny.exe", "${env:ProgramFiles(x86)}\Thonny\thonny.exe", "$env:LOCALAPPDATA\Programs\Thonny\thonny.exe") }
-    @{ Name = "VS Code";             Cmd = "code";         VersionCmd = "code --version" }
-    @{ Name = "Arduino IDE";         Cmd = "arduino-ide";  Paths = @("$env:LOCALAPPDATA\Programs\Arduino IDE\Arduino IDE.exe", "$env:ProgramFiles\Arduino IDE\Arduino IDE.exe") }
+    @{ Name = "VS Code";             Cmd = "code";         Paths = @("$env:ProgramFiles\Microsoft VS Code\Code.exe", "${env:ProgramFiles(x86)}\Microsoft VS Code\Code.exe", "$env:LOCALAPPDATA\Programs\Microsoft VS Code\Code.exe") }
+    @{ Name = "Arduino IDE";         Cmd = "arduino-ide";  Paths = @("$env:ProgramFiles\Arduino IDE\Arduino IDE.exe", "$env:LOCALAPPDATA\Programs\Arduino IDE\Arduino IDE.exe") }
     @{ Name = "IntelliJ IDEA";       Cmd = "idea64";       Paths = @("$env:ProgramFiles\JetBrains\IntelliJ IDEA Community Edition*\bin\idea64.exe") }
-    @{ Name = "Dev-C++";             Cmd = "devcpp";       Paths = @("$env:ProgramFiles\Embarcadero\Dev-Cpp\devcpp.exe", "${env:ProgramFiles(x86)}\Embarcadero\Dev-Cpp\devcpp.exe") }
+    @{ Name = "Dev-C++";             Cmd = "devcpp";       Paths = @("$env:ProgramFiles\Embarcadero\Dev-Cpp\devcpp.exe", "${env:ProgramFiles(x86)}\Embarcadero\Dev-Cpp\devcpp.exe", "C:\Program Files (x86)\Dev-Cpp\devcpp.exe") }
     @{ Name = "Code::Blocks";        Cmd = "codeblocks";   Paths = @("$env:ProgramFiles\CodeBlocks\codeblocks.exe", "${env:ProgramFiles(x86)}\CodeBlocks\codeblocks.exe") }
     @{ Name = "GCC (MinGW)";         Cmd = "gcc";          VersionCmd = "gcc --version" }
     @{ Name = "R Language";          Cmd = "Rscript";      VersionCmd = "Rscript --version" }
     @{ Name = "RStudio";             Cmd = "rstudio";      Paths = @("$env:ProgramFiles\RStudio\rstudio.exe", "$env:ProgramFiles\Posit\RStudio\rstudio.exe") }
     @{ Name = "Git";                 Cmd = "git";          VersionCmd = "git --version" }
-    @{ Name = "GitHub Desktop";      Cmd = "github";       Paths = @("$env:LOCALAPPDATA\GitHubDesktop\GitHubDesktop.exe") }
+    @{ Name = "GitHub Desktop";      Cmd = "github";       Paths = @("$env:ProgramFiles\GitHub Desktop\GitHubDesktop.exe", "$env:LOCALAPPDATA\GitHubDesktop\GitHubDesktop.exe") }
     @{ Name = "Wireshark";           Cmd = "wireshark";    Paths = @("$env:ProgramFiles\Wireshark\Wireshark.exe") }
     @{ Name = "VirtualBox";          Cmd = "VBoxManage";   Paths = @("$env:ProgramFiles\Oracle\VirtualBox\VirtualBox.exe") }
     @{ Name = "Raspberry Pi Imager"; Cmd = "rpi-imager";   Paths = @("$env:ProgramFiles\Raspberry Pi Imager\rpi-imager.exe", "${env:ProgramFiles(x86)}\Raspberry Pi Imager\rpi-imager.exe") }
     @{ Name = "MySQL";               Cmd = "mysql";        VersionCmd = "mysql --version" }
     @{ Name = "MariaDB";             Cmd = "mariadb";      Paths = @("$env:ProgramFiles\MariaDB*\bin\mariadb.exe") }
-    @{ Name = "SSMS";                Cmd = "ssms";         Paths = @("$env:ProgramFiles(x86)\Microsoft SQL Server Management Studio*\Common7\IDE\Ssms.exe") }
-    @{ Name = "LINE";                Cmd = "LINE";         Paths = @("$env:LOCALAPPDATA\LINE\bin\LineLauncher.exe", "$env:ProgramFiles\LINE\LineLauncher.exe") }
-    @{ Name = "Processing";          Cmd = "processing";   Paths = @("C:\Processing\processing.exe") }
+    @{ Name = "SSMS";                Cmd = "ssms";         Paths = @("${env:ProgramFiles(x86)}\Microsoft SQL Server Management Studio*\Common7\IDE\Ssms.exe", "$env:ProgramFiles\Microsoft SQL Server Management Studio*\Common7\IDE\Ssms.exe") }
+    @{ Name = "LINE";                Cmd = "LINE";         Paths = @("C:\Program Files\LINE\bin\LineLauncher.exe", "${env:ProgramFiles(x86)}\LINE\bin\LineLauncher.exe", "$env:LOCALAPPDATA\LINE\bin\LineLauncher.exe") }
+    @{ Name = "Processing";          Cmd = "processing";   Paths = @("C:\Program Files\Processing 4\processing.exe", "C:\Program Files\Processing\processing.exe", "C:\Processing\processing.exe") }
     @{ Name = "Pulsar (Atom)";       Cmd = "pulsar";       Paths = @("$env:LOCALAPPDATA\Programs\Pulsar\Pulsar.exe", "$env:ProgramFiles\Pulsar\Pulsar.exe") }
     @{ Name = "Eclipse C++";         Cmd = "eclipse";      Paths = @("C:\Eclipse\eclipse.exe") }
     @{ Name = "Quartus Prime";       Cmd = "quartus";      Paths = @("C:\intelFPGA_lite\*\quartus\bin64\quartus.exe", "$env:ProgramFiles\intelFPGA_lite\*\quartus\bin64\quartus.exe") }

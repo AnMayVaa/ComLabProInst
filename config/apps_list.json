@@ -17,6 +17,16 @@
       "category": "programming"
     },
     {
+      "name": "Eclipse Temurin JDK 21",
+      "id": "EclipseAdoptium.Temurin.21.JDK",
+      "category": "programming"
+    },
+    {
+      "name": "Processing 4",
+      "id": "ProcessingFoundation.Processing",
+      "category": "programming"
+    },
+    {
       "name": "Thonny",
       "id": "AivarAnnamaa.Thonny",
       "category": "ide"
@@ -37,14 +47,8 @@
       "category": "ide"
     },
     {
-      "name": "Eclipse IDE for C/C++",
-      "id": "EclipseAdoptium.Temurin.21.JDK",
-      "category": "ide",
-      "note": "Eclipse IDE ต้องลง manual เพิ่ม ดู 03_install_manual_apps.ps1"
-    },
-    {
       "name": "Dev-C++ (Embarcadero)",
-      "id": "Embarcadero.Dev-Cpp",
+      "id": "Embarcadero.Dev-C++",
       "category": "ide",
       "note": "มี MinGW GCC มาด้วย"
     },
@@ -101,15 +105,17 @@
     {
       "name": "SQL Server Management Studio",
       "id": "Microsoft.SQLServerManagementStudio",
+      "override": "/install /quiet /norestart",
       "category": "database"
-    },
-    {
-      "name": "LINE Desktop",
-      "id": "LINE.LINE",
-      "category": "communication"
     }
   ],
   "manual_apps": [
+    {
+      "name": "LINE Desktop",
+      "download_url": "https://desktop.line-scdn.net/win/new/LineInst.exe",
+      "category": "communication",
+      "note": "ติดตั้งสำหรับผู้ใช้งานทุกคน (Shared across all users)"
+    },
     {
       "name": "Intel Quartus Prime 21 Lite",
       "download_url": "https://www.intel.com/content/www/us/en/software-kit/785086/intel-quartus-prime-lite-edition-design-software-version-22-1-2-for-windows.html",
@@ -123,22 +129,16 @@
       "note": "ต้อง login Cisco Networking Academy account"
     },
     {
-      "name": "Processing",
-      "download_url": "https://processing.org/download",
-      "category": "programming",
-      "note": "Download .zip แล้ว extract ไป C:\\Processing"
-    },
-    {
       "name": "Pulsar (Atom fork)",
-      "download_url": "https://pulsar-edit.dev/download.html",
+      "download_url": "https://github.com/pulsar-edit/pulsar/releases/download/v1.122.0/Windows.Pulsar.Setup.1.122.0.exe",
       "category": "ide",
       "note": "Community fork ของ Atom (Atom ถูกยุติแล้ว)"
     },
     {
       "name": "Eclipse IDE for C/C++ Developers",
-      "download_url": "https://www.eclipse.org/downloads/packages/",
+      "download_url": "https://www.eclipse.org/downloads/download.php?file=/technology/epp/downloads/release/2024-09/R/eclipse-cpp-2024-09-R-win32-x86_64.zip&r=1",
       "category": "ide",
-      "note": "เลือก Eclipse IDE for C/C++ Developers package"
+      "note": "แตกไฟล์ลง C:\\Eclipse และแชร์ให้ทุก User"
     }
   ],
   "later_apps": [

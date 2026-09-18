@@ -2,7 +2,8 @@
 .SYNOPSIS
     Master Controller Script สำหรับติดตั้งห้องแลป ECE
 .DESCRIPTION
-    รันสคริปต์ขั้นตอนที่ 1-6 ตามลำดับ พร้อมแสดงผลภาษาไทยอย่างถูกต้อง
+    รันสคริปต์ขั้นตอนที่ 1-7 ตามลำดับ พร้อมแสดงผลภาษาไทยอย่างถูกต้อง
+    และสร้าง Desktop Shortcuts บน Public Desktop ให้ทั้ง Admin และ Student
 #>
 
 #Requires -RunAsAdministrator
@@ -16,12 +17,13 @@ Write-Host "     ECE Computer Lab -- Automated Provisioning" -ForegroundColor Ye
 Write-Host "========================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host " Script นี้จะดำเนินการตามขั้นตอนดังนี้:" -ForegroundColor White
-Write-Host "   [1/6] ล้าง Profile เก่า และสร้าง Admin / Student" -ForegroundColor Gray
-Write-Host "   [2/6] ติดตั้ง Software ด้วย winget อัตโนมัติ" -ForegroundColor Gray
-Write-Host "   [3/6] ติดตั้ง Manual Apps (Processing, Pulsar, Eclipse)" -ForegroundColor Gray
-Write-Host "   [4/6] ติดตั้ง Python Data Science Libraries" -ForegroundColor Gray
-Write-Host "   [5/6] ตั้งค่านโยบายความปลอดภัยของ Student" -ForegroundColor Gray
-Write-Host "   [6/6] ตรวจสอบความถูกต้องและสร้างรายงานผล HTML" -ForegroundColor Gray
+Write-Host "   [1/7] ล้าง Profile เก่า และสร้าง Admin / Student" -ForegroundColor Gray
+Write-Host "   [2/7] ติดตั้ง Software ด้วย winget (Machine-wide)" -ForegroundColor Gray
+Write-Host "   [3/7] ติดตั้ง Manual & Shared Apps (LINE, Processing, Dev-C++)" -ForegroundColor Gray
+Write-Host "   [4/7] ติดตั้ง Python Data Science Libraries" -ForegroundColor Gray
+Write-Host "   [5/7] ตั้งค่านโยบายความปลอดภัยและสิทธิ์ Student" -ForegroundColor Gray
+Write-Host "   [6/7] สร้าง Desktop Shortcuts บน Public Desktop ให้ทุก User" -ForegroundColor Gray
+Write-Host "   [7/7] ตรวจสอบความถูกต้องและสร้างรายงานผล HTML" -ForegroundColor Gray
 Write-Host ""
 Write-Host "========================================================" -ForegroundColor Cyan
 Write-Host ""
@@ -45,12 +47,13 @@ foreach ($sp in $searchPaths) {
 }
 
 $steps = @(
-    @{ File = "01_create_users.ps1";        Name = "[1/6] ล้าง Profile และสร้าง User Accounts" }
-    @{ File = "02_install_winget_apps.ps1";   Name = "[2/6] ติดตั้ง Software ด้วย winget" }
-    @{ File = "03_install_manual_apps.ps1";   Name = "[3/6] ติดตั้ง Manual Apps" }
-    @{ File = "04_install_python_libs.ps1";   Name = "[4/6] ติดตั้ง Python Libraries" }
-    @{ File = "05_configure_student.ps1";     Name = "[5/6] กำหนดค่านโยบาย Student Account" }
-    @{ File = "06_post_install_verify.ps1";   Name = "[6/6] ตรวจสอบความถูกต้องของระบบทั้งหมด" }
+    @{ File = "01_create_users.ps1";             Name = "[1/7] ล้าง Profile และสร้าง User Accounts" }
+    @{ File = "02_install_winget_apps.ps1";        Name = "[2/7] ติดตั้ง Software ด้วย winget (Machine-wide)" }
+    @{ File = "03_install_manual_apps.ps1";        Name = "[3/7] ติดตั้ง Manual & Shared Apps (LINE, Processing, Dev-C++)" }
+    @{ File = "04_install_python_libs.ps1";        Name = "[4/7] ติดตั้ง Python Libraries" }
+    @{ File = "05_configure_student.ps1";          Name = "[5/7] กำหนดค่านโยบายและสิทธิ์ Student Account" }
+    @{ File = "07_create_public_shortcuts.ps1";    Name = "[6/7] สร้าง Desktop Shortcuts บน Public Desktop ให้ทุก User" }
+    @{ File = "06_post_install_verify.ps1";        Name = "[7/7] ตรวจสอบความถูกต้องของระบบทั้งหมด" }
 )
 
 foreach ($step in $steps) {
@@ -70,5 +73,6 @@ foreach ($step in $steps) {
 Write-Host ""
 Write-Host "========================================================" -ForegroundColor Cyan
 Write-Host " เสร็จสิ้นกระบวนการทั้งหมดเรียบร้อยแล้ว!" -ForegroundColor Green
+Write-Host " Desktop Shortcuts ถูกสร้างไว้ที่หน้าจอ Desktop ของทุกบัญชีแล้ว" -ForegroundColor Green
 Write-Host " ตรวจสอบรายงานผลได้ที่: $PSScriptRoot\logs\install_report.html" -ForegroundColor Yellow
 Write-Host "========================================================" -ForegroundColor Cyan
