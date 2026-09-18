@@ -1,0 +1,45 @@
+# ===========================
+# Data Science Core
+# ===========================
+numpy
+pandas
+matplotlib
+scipy
+scikit-learn
+statsmodels
+sympy
+
+# ===========================
+# Jupyter / Notebook
+# ===========================
+jupyter
+notebook
+ipykernel
+
+# ===========================
+# Visualization
+# ===========================
+seaborn
+plotly
+
+# ===========================
+# Image Processing
+# ===========================
+opencv-python
+Pillow
+
+# ===========================
+# Web / API
+# ===========================
+requests
+flask
+fastapi
+uvicorn
+
+# ===========================
+# Utilities
+# ===========================
+python-dotenv
+tqdm
+openpyxl
+xlsxwriter

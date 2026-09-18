@@ -1,0 +1,9 @@
+# Logs & downloads generated during provisioning
+logs/
+downloads/
+*.zip
+*.iso
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
